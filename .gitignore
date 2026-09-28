@@ -4,3 +4,11 @@ dist/
 .env*
 .DS_Store
 coverage/
+.venv/
+.local/
+models/*
+!models/manifest.json
+data/
+__pycache__/
+.pytest_cache/
+*.pyc
