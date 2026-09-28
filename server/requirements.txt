@@ -9,3 +9,6 @@ httpx>=0.28,<1
 python-dotenv>=1.0,<2
 onnxruntime>=1.20,<2
 pytest>=8,<9
+ultralytics>=8.3,<9
+supervision>=0.25,<0.31
+gdown>=5,<7
