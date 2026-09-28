@@ -41,11 +41,12 @@ export async function analyzeVideo(
     });
   try {
     await waitEvent('loadeddata');
-    if (!Number.isFinite(video.duration) || video.duration <= 0 || video.duration > 60)
+    if (!Number.isFinite(video.duration) || video.duration < 1 || video.duration > 60)
       throw new Error('Choose a clip between 1 and 60 seconds.');
     const canvas = document.createElement('canvas');
-    canvas.width = 480;
-    canvas.height = Math.round((480 * video.videoHeight) / video.videoWidth);
+    const scale = Math.min(1, 480 / Math.max(video.videoWidth, video.videoHeight));
+    canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+    canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const frames: Frame[] = [];
     for (let time = 0; time < video.duration; time += 0.2) {

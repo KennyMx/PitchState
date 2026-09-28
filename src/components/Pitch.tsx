@@ -1,3 +1,4 @@
+import { convexHull } from '../core/geometry';
 import { frameAt, type Frame } from '../core/model';
 interface Props {
   frames: Frame[];
@@ -29,7 +30,7 @@ export default function Pitch({
       className={`pitch ${perspective ? 'perspective' : ''}`}
       viewBox="-5 -6 110 112"
       preserveAspectRatio="none"
-      role="img"
+      role="group"
       aria-label={
         local ? 'Camera-space player reconstruction' : 'Interactive top-down pitch reconstruction'
       }
@@ -88,8 +89,7 @@ export default function Pitch({
           )}
       {shape && home.length > 2 && (
         <polygon
-          points={[...home]
-            .sort((a, b) => Math.atan2(a.y - 50, a.x - 50) - Math.atan2(b.y - 50, b.x - 50))
+          points={convexHull(home)
             .map((p) => `${p.x},${p.y}`)
             .join(' ')}
           fill="#c8ed72"

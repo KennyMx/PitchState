@@ -130,3 +130,16 @@ describe('assisted calibration', () => {
     expect(enriched[4].ball?.x).toBe(90);
   });
 });
+
+import { convexHull } from '../src/core/geometry';
+it('builds a non-crossing team envelope independent of observation order', () => {
+  const corners = [
+    { x: 0, y: 0 },
+    { x: 100, y: 0 },
+    { x: 100, y: 100 },
+    { x: 0, y: 100 },
+  ];
+  const points = [corners[2], { x: 50, y: 50 }, corners[0], corners[3], corners[1]];
+  expect(convexHull(points)).toEqual(corners);
+  expect(convexHull([...points].reverse())).toEqual(corners);
+});

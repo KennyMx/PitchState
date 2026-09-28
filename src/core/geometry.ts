@@ -73,6 +73,39 @@ export function enrichFrames(frames: Frame[], matrix: Matrix | null, marks: Ball
               p.y <= 100,
           )
       : f.players;
-    return { ...f, players, ball: ball && matrix ? project(ball, matrix) : ball };
+    const mappedBall = ball && matrix ? project(ball, matrix) : ball;
+    const validBall =
+      mappedBall &&
+      Number.isFinite(mappedBall.x) &&
+      Number.isFinite(mappedBall.y) &&
+      mappedBall.x >= 0 &&
+      mappedBall.x <= 100 &&
+      mappedBall.y >= 0 &&
+      mappedBall.y <= 100
+        ? mappedBall
+        : null;
+    return { ...f, players, ball: validBall };
   });
+}
+
+/** Monotone-chain hull: team envelope must not self-intersect or depend on player order. */
+export function convexHull(points: Point[]): Point[] {
+  const sorted = [...points].sort((a, b) => a.x - b.x || a.y - b.y);
+  if (sorted.length < 3) return sorted;
+  const turn = (a: Point, b: Point, c: Point) =>
+    (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const half = (items: Point[]) => {
+    const hull: Point[] = [];
+    for (const p of items) {
+      while (hull.length >= 2 && turn(hull[hull.length - 2], hull[hull.length - 1], p) <= 0)
+        hull.pop();
+      hull.push(p);
+    }
+    return hull;
+  };
+  const lower = half(sorted),
+    upper = half([...sorted].reverse());
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
 }

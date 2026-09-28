@@ -140,11 +140,13 @@ export default function App() {
     if (video.current) video.current.currentTime = t;
   };
   const togglePlay = () => {
+    setTool(null);
     if (time >= analysis.duration) seek(0);
     setPlaying((p) => !p);
   };
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return;
       if (
         ['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'].includes((e.target as HTMLElement).tagName) ||
         modal
