@@ -3,6 +3,7 @@
 Acceptance: run actual match footage through learned player/ball perception, identity tracking, camera-aware coordinates, evolving game state, tactical features, and real Jev next-action probability distributions. The UI must replay those actual observations and judgments alongside the source video.
 
 Implementation sequence (each independently reviewable step is committed):
+
 1. Reproducible model/footage acquisition and isolated Python inference service.
 2. Learned player and ball detectors, with measurable observation quality.
 3. Motion/appearance tracking and automatic team separation.

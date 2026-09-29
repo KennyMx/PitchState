@@ -1,0 +1,19 @@
+{
+  "clip": "0bfacc_0.mp4",
+  "seconds": 8,
+  "device": "Apple MPS",
+  "pipelineVersion": "neural-soccer-v2",
+  "quality": {
+    "frames": 40,
+    "playerObservations": 927,
+    "uniqueTracks": 26,
+    "ballObservedFraction": 0.925,
+    "ballPredictedFraction": 0.075,
+    "calibratedFraction": 1.0,
+    "possessionKnownFraction": 0.775,
+    "processingSeconds": 28.42,
+    "jevResponses": 6,
+    "shots": 1
+  },
+  "interpretation": "Coverage is availability, not accuracy. Different clip/device than CPU evaluation; not a controlled hardware benchmark."
+}

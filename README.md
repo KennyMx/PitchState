@@ -1,65 +1,76 @@
 # PitchState
 
-**See the game beneath the game.** A local-first soccer analysis playground built with React, TypeScript, Canvas, SVG, and a Web Worker.
+**See the game beneath the game.** Upload a soccer clip and replay learned player/ball detections, a moving pitch reconstruction, evolving tactical evidence, and Jev next-action probabilities on one timeline.
 
-PitchState connects original footage, player movement, pitch reconstruction, and evolving tactical hypotheses to a single playhead. An interactive simulated play loads immediately; visitors can also process their own clips without sending video to a server.
+The default upload path is a working neural pipeline:
 
-## Run locally
+**Footage → soccer-specific perception → camera-aware tracking → causal game state → tactical evidence → Jev → next-three-second action distribution.**
 
-Use Node 22 LTS or Node 24+.
+React/TypeScript renders the replay. A Python/FastAPI companion runs three local soccer models and sends compact state features to Jev. Raw video is not sent to Jev. A cached real analysis loads immediately when configured; a clearly labeled simulation is the fallback. The earlier kit-color browser baseline remains available for comparison.
+
+## Run
+
+Use Node 22 and Python 3.10+. The tested environment is macOS with Apple MPS; CUDA and CPU are also selectable. Model downloads total approximately 414 MB; Python/Torch needs additional disk space.
 
 ```sh
 npm ci
+bash scripts/setup_backend.sh
+cp .env.example .env.local
+# Set JEV_API_KEY in .env.local. Never use a VITE_* variable for secrets.
+npm run server
+```
+
+In another terminal:
+
+```sh
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. `npm test` runs the analysis tests, `npm run build` creates the static site in `dist`, and `npm run format:check` checks formatting.
+Open http://127.0.0.1:5173. Upload an MP4/WebM/MOV (up to 60 seconds, 100 MB, 4K). Team A is initially the darker jersey cluster; choose its attack direction before processing. The first provisional reconstruction appears while analysis continues. Play, scrub, select tracks, inspect movement, and click Jev timestamps or tactical moments. Export the complete replay JSON for inspection.
 
-## Explore
+Without a Jev key, perception and tactical state still work; the interface reports unavailable judgments instead of fabricating probabilities.
 
-- Play or scrub the example. Both views, game state, and movement history follow the same clock.
-- Select a player, turn on the heatmap, and inspect speed and distance in **Player focus**.
-- Click a tactical moment to inspect its geometric evidence.
-- Upload an MP4 or WebM, up to 60 seconds and 100 MB. Red kits become Home; blue kits become Away. All processing stays on-device.
-- With a **fixed camera and the whole pitch visible**, choose **Calibrate pitch**. Mark the pitch corners clockwise: top left, top right, bottom right, bottom left. This assumes Home attacks toward the right.
-- Choose **Mark ball** and click the ball in the original footage. Each click advances 0.4 seconds. Mark a sequence, then choose **Finish ball marking** and replay it. Marks interpolate only over gaps up to two seconds; other spans remain unknown.
-- Export the frame log, events, calibration, and annotations as JSON. There is no persistence across page reloads yet.
+## Reproduce the real-footage evaluation
 
-The included `tests/fixtures/kits.mp4` is a generated three-second detector smoke-test clip, not soccer footage. It has one red and one blue rectangle on green.
+The downloader references public links from [Roboflow's soccer example](https://github.com/roboflow/sports/tree/main/examples/soccer). These research clips are not bundled or cleared for public redistribution.
 
-## What is real, and what is experimental?
+```sh
+.venv/bin/python scripts/download_assets.py --footage
+PYTHONPATH=. .venv/bin/python scripts/analyze_clip.py data/2e57b9_0.mp4 \
+  --seconds 12 --jev --output .local/real-analysis.json
+```
 
-| Capability           | Current implementation                                                                                   |
-| -------------------- | -------------------------------------------------------------------------------------------------------- |
-| Instant example      | Explicitly labeled simulated positions and ball movement                                                 |
-| Uploaded video       | Real local decoding and sampling at 5 Hz                                                                 |
-| Player candidates    | Kit-color connected components, worker processing, gated temporal identity association                   |
-| Pitch reconstruction | Camera-space view by default; manual four-corner projective calibration                                  |
-| Ball position        | User annotations with bounded interpolation; no automatic ball detector                                  |
-| Tactical state       | Ball proximity, nearby opponents, progression and final-third rules with persistence and event cooldowns |
-| Movement metrics     | Trails and occupancy; approximate meters and km/h only for simulation or calibrated clips                |
-| Jev                  | Architectural integration point only; no API calls, key, or paid service required                        |
+Reload the application to open the real cached example. A second clip is available as `data/0bfacc_0.mp4`. `--jev` makes actual paid requests within the configured caps; omit it for perception/state evaluation. Repeated identical state requests use the persistent cache.
 
-**This is an assisted analysis prototype, not a general broadcast-soccer analyzer.** The baseline can confuse spectators, advertising, referees, and similarly colored objects with players. Occlusions can change IDs. Zooms, camera movement, cuts, or incorrect corners invalidate calibration. Speed estimates inherit those errors. Tactical confidence values are heuristic weights, not calibrated probabilities. Pressing intent, counterattacks, overloads, pass recognition, and automatic ball tracking remain research milestones.
+| Real evaluation             | Samples | Observed ball coverage | Processing time |
+| --------------------------- | ------: | ---------------------: | --------------: |
+| First clip, 12 seconds, CPU |      60 |                  86.7% |         108.1 s |
+| Second clip, 8 seconds, MPS |      40 |                  92.5% |          28.4 s |
 
-The visualization deliberately distinguishes simulated data, low-confidence observations, uncalibrated coordinates, and unknown possession. It does not fabricate tactical conclusions where the ball is missing.
+Coverage measures availability, **not accuracy**. These are development runs on different clips/devices, not a controlled hardware comparison. Both produced actual Jev distributions. See [validation](docs/VALIDATION.md) and [machine-readable reports](reports/real-footage-baseline.json).
 
-## Engineering depth
+## What is implemented
 
-- A replayable, timestamped observation model decouples perception, state, judgment, and rendering.
-- Binary-search lookup and interpolation support arbitrary seeking without coupling state to playback order.
-- Connected-component labeling runs off the UI thread; local processing supports progress, cancellation, decoder errors, and bounded resource use.
-- Temporal association includes team gating, distance gating, one-to-one assignment, and track expiry.
-- Four-point homography uses partial-pivot elimination with degenerate-input validation.
-- Tactical rules require persistence and enforce cooldowns. Ball interpolation explicitly abstains across long gaps.
-- Tests cover temporal state, unknown evidence, event stability, tracking identities, detection, calibration, and annotation gaps.
+- Soccer-trained player, goalkeeper, referee, ball and pitch-landmark models; tiled small-ball reacquisition.
+- Camera motion compensation, two-stage track association, ball filtering, bounded prediction, and shot resets.
+- Learned pitch calibration with RANSAC and rejection checks; explicit camera-space fallback.
+- Possession hysteresis, movement estimates, visible team shape, pressure, passing options, local overloads, dangerous-run candidates and transition evidence.
+- Causal Jev questions with complete next-action distributions, timestamps, abstention and stale-judgment indicators.
+- Progressive jobs, cancellation, private session ownership, persistent caches, durable API budget, daily upload cap and replay export.
 
-See [architecture and roadmap](docs/ARCHITECTURE.md), [Jev integration design](docs/JEV.md), and [validation notes](docs/VALIDATION.md).
+This is an operational research project, not a validated professional tracking system. Ball occlusion, airborne-ball projection, crowded scenes, similar kits, unusual camera angles and partial-field views remain hard. IDs are track IDs, not player identities. Speed/distance and tactical labels inherit perception errors. Jev probabilities have not been calibrated against labeled match outcomes.
 
-## Deploy without an inference bill
+## Engineering and deployment
 
-The app builds to static files. There is no backend, database, video storage, GPU service, or inference API. Hosting bandwidth is the only server-side resource. Fonts are fetched from Google Fonts with system fallbacks; video is never transmitted.
+Read [architecture](docs/ARCHITECTURE.md), [Jev integration](docs/JEV.md), [validation](docs/VALIDATION.md), and [deployment](docs/DEPLOYMENT.md).
 
-For GitHub Pages, set **Settings → Pages → Source → GitHub Actions**, then run **Publish to GitHub Pages** in the Actions tab. The workflow is manual so a push does not publish the project unexpectedly. Vite uses relative asset paths for repository subpath hosting. This repository does not claim a live deployment until that workflow succeeds.
+```sh
+npm test
+npm run build
+npm run format:check
+pip install -r server/requirements-test.txt  # inside the backend environment
+npm run test:server
+.venv/bin/ruff check server scripts
+```
 
-Other static hosts can use `npm run build` and the `dist` output directory. Never place a Jev key in a `VITE_*` environment variable or the browser bundle.
+A static-only deployment can run the browser baseline, but **neural uploads require the Python service**. The included single-worker container setup bounds cost and serves the frontend/API together. No public deployment is claimed. Model/runtime license obligations and footage rights must be resolved for the intended deployment; see `models/manifest.json`.

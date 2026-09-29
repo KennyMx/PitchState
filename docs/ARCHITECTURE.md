@@ -1,28 +1,37 @@
-# PitchState architecture
+# Architecture
 
-## Product contract
+## Data flow
 
-A visitor sees a replayable tactical playground immediately. The included sequence is explicitly a simulation, not analysis of match footage. Uploaded videos stay on-device. The first detector is an experimental color-based baseline for wide, stable views with red and blue kits; no claim of general broadcast accuracy is made.
+`pipeline.analyze` samples real decoded video at 5 Hz. `SoccerModels` returns image-space detections and pitch landmarks. `CameraEstimator` estimates camera motion, identifies cuts, and solves image-to-pitch geometry. Player association and ball filtering run before the causal state estimator. That state, plus a short past-only window, becomes the Jev input. Every frame and judgment is serialized into a versioned replay consumed by React.
 
-## Layers
+The neural cache stores observations before state inference, allowing tracking/state/prompt iteration without rerunning expensive models. Its version must change when perception preprocessing, weights, or output semantics change. Jev caching hashes model, prompt version, questions and canonical state; no future frames enter a request.
 
-1. **Observation:** sample a local video at 5 Hz into 480px frames. A worker extracts connected components matching red/blue kit colors. A gated nearest-neighbor tracker assigns stable IDs within each team, with short occlusion tolerance. The detector does not infer the ball. Users can supply ball annotations after calibration.
-2. **State:** timestamped player observations and optional ball position form a replayable frame log. Binary search plus interpolation provides synchronized render state at any playhead position. Team geometry and proximity are derived from the current state; event rules operate on the current and previous reconstructed state. Offline playback interpolates between adjacent observations; assisted ball reconstruction uses bracketing annotations, so this is not a causal live-inference system.
-3. **Judgment:** deterministic hypotheses use geometric evidence, persistence, and cooldowns. They are heuristics, not calibrated tactical truth. Future Jev judgments should consume a compact state window with explicit unknowns, never raw video. Keys belong on a server, behind quotas and caching. The application works without this service.
-4. **Experience:** original clip, top-down projection, movement trails, occupancy visualization, player selection, event timeline, and JSON export share one playhead.
+## Perception and geometry
 
-## Geometry and honesty
+Three soccer-trained Ultralytics models separately detect players/roles, small balls, and 32 field landmarks. Player detections use 960-pixel inference. Ball detection uses global and temporally focused views, with four overlapping high-resolution tiles when confidence is low. Jersey clustering excludes grass from torso crops; track-level voting stabilizes team assignment. Unknown teams remain explicit. Referees are not treated as team players.
 
-Simulation positions live on a normalized 105×68m pitch. Uploaded detections use normalized image coordinates, so the view is labeled camera-space and physical speed/distance is withheld. Users can mark the four full-pitch corners to solve an eight-parameter homography with partial-pivot Gaussian elimination. This enables approximate measurements under a fixed camera and an assumed 105×68m pitch. Ball annotations interpolate only across gaps of at most two seconds. Invalid crossed or degenerate corner sets are rejected. Cut detection should invalidate identity and geometry; this version does not detect cuts or moving cameras.
+Pitch landmarks are mapped onto a nominal 105 × 68 m field. RANSAC, inlier counts, residual and spatial-coverage checks reject bad transforms. Optical flow compensates camera motion and only briefly propagates calibration. A cut clears temporal assumptions. Missing geometry yields image coordinates and suppresses metric tactical conclusions.
 
-## Next engineering milestones
+A planar homography cannot recover the true ground location of an airborne ball. Partial pitch visibility can also produce a plausible but incorrect calibration. The current quality flag is an internal validity check, not a measured ground-truth error bound.
 
-- Evaluate a licensed player/ball detector on held-out wide-angle clips; report recall, ID switches and ball visibility rather than a single marketing accuracy.
-- Extend the manual four-corner calibration with automatic field landmarks, RANSAC estimation, camera motion compensation, and confidence propagation.
-- Replace nearest-neighbor association with motion prediction and appearance matching; explicitly expire identities after cuts.
-- Add possession hysteresis and pass hypotheses only when ball evidence is present.
-- Compare rules against Jev on annotated tactical windows; assess calibration, abstention, latency, and actual cost before enabling it.
+## Tracking and state
 
-## Cost and deployment
+The player tracker uses Hungarian matching with camera-compensated motion, overlap, role and appearance costs, followed by a low-confidence association stage. Tracks expire; IDs are never reused after a shot reset. This is a lightweight association implementation, not a trained long-term re-identification system.
 
-The current site is static: no database, upload storage, GPU server, or paid inference. Vite's dist folder can be served by GitHub Pages, Cloudflare Pages, or any static host. Browser work is capped at 60 seconds and 100MB per clip. Future heavier inference should use cached curated analyses and opt-in local processing before adding a metered backend. Do not ship an unrestricted paid endpoint.
+The ball uses a Kalman filter, bounded 0.4-second prediction and gated global reacquisition. Observed, predicted and missing are distinct. State updates use only history up to the current frame. Possession requires proximity, temporal hysteresis and expiry; it can remain unknown through a long pass. Metric smoothing rejects implausible player speeds.
+
+Tactical evidence includes visible team width/depth/centroid, closing opponents, open passing lanes, local numerical superiority, forward progression, turnover age and runs behind the second visible defender. Persistent rules produce an inspectable baseline phase and event log. These are hypotheses about visible geometry, not assertions about all 22 players or coaching intent. Attack direction is explicitly configured.
+
+## Jev and replay
+
+Jev periodically evaluates the current evidence and recent trajectory window. It returns a next-three-second action distribution, tactical-phase distribution and dangerous-run judgment. The UI retains the deterministic evidence alongside the model judgment, exposes uncertainty, and marks old judgments stale. Scrubbing selects the most recent judgment at or before the playhead. Interpolation, trails and heatmaps do not cross shot/coordinate-system boundaries.
+
+## Runtime boundaries
+
+FastAPI accepts bounded multipart jobs into a one-worker queue. Session cookies own jobs and protect results/video. Upload IDs are known before the POST completes so cancellation can target a pending request. Cancellation is cooperative between inference steps; an already-sent Jev request may finish. A provisional frame is exposed before full completion. Persisted unfinished jobs become failed on service restart.
+
+A single process is deliberate: in-memory queue ownership and the model instance are not distributed. SQLite persists the Jev budget/cache. Local job folders hold uploads and replay JSON. Old jobs are removed on startup or a subsequent upload; this is not a continuously running TTL sweeper. Neural caches currently require operator-managed retention.
+
+## Remaining engineering work
+
+Build a labeled evaluation set spanning cuts, zooms, occlusions and kit ambiguity; measure association and calibration errors. Improve ball identity/airborne-state handling, add track correction and direction confirmation, and evaluate tactical/forecast outcomes with proper scoring rules. A multi-user service would need a durable external job queue, streamed upload limits, per-user quotas and managed cache retention before scaling beyond one worker.

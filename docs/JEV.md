@@ -1,40 +1,25 @@
-# Optional Jev judgment layer
+# Jev integration
 
-The current application uses deterministic rules and makes no Jev requests. This keeps the public playground usable without account setup or ongoing API costs.
+The implementation calls the [official TypeSafe API](https://docs.typesafe.ai/api) at `https://api.typesafe.ai/v1/systemone`, using `jev-1.13.0`. `server/pitchstate/jev.py` is the adapter; it has been exercised with actual soccer state and actual responses.
 
-TypeSafe describes Jev as a structured decision model with typed answers and confidence signals: https://typesafe.ai/ and https://docs.typesafe.ai/. Verify the current official SDK, API schema, and pricing before implementing a service. Third-party gateways are not treated as authoritative providers.
+## Inputs and outputs
 
-## Proposed boundary
+Each request contains a compact causal state/history and three typed questions:
 
-A future server adapter receives a compact, versioned window of **already reconstructed state**, not video. The app owns perception, identities, coordinates, and playback. Jev can help judge higher-level hypotheses such as transition, pressure, overload, or insufficient evidence.
+- Choice: the next on-ball action in three seconds — pass, carry, shot, cross, turnover, stoppage or insufficient evidence.
+- Choice: build-up, counterattack, pressing, settled attack, defensive transition or insufficient evidence.
+- Noul: whether observed motion supports a dangerous off-ball run.
 
-Example application-owned input (not a claim about a vendor wire schema):
+A cross is explicitly separate from a pass. Inputs include geometry validity, ball provenance, possession confidence, pressure, passing options, progression, team shape and transition history. Raw video, image crops, filenames and the API key are not part of state. Questions instruct the model to avoid inventing off-camera players and to abstain when evidence is insufficient.
 
-```json
-{
-  "schemaVersion": 1,
-  "windowSeconds": 3,
-  "coordinateSpace": "pitch_meters",
-  "calibrationConfidence": 0.7,
-  "ballVisibility": 0.9,
-  "possession": "home",
-  "forwardBallDisplacementMeters": 16,
-  "opponentsNearCarrier": 2,
-  "teamWidthMeters": 43,
-  "previousHypothesis": "build_up",
-  "unknowns": ["off_camera_players", "player_roles"]
-}
-```
+Responses are validated for supported choices, finite [0,1] values and normalized distributions. A failed or invalid response becomes unavailable, never a synthetic probability. Results include source, model, prompt version, timestamp, request hash, cache status, latency and usage. These are model judgments, not statistically calibrated match-outcome probabilities.
 
-Use bounded answers, including `insufficient_evidence`. Keep the rule baseline available when a request fails, times out, or confidence is low. Store provenance separately so the UI cannot mislabel a rule result as a model judgment.
+## Cost controls
 
-## Cost controls before public enablement
+`JEV_API_KEY` is server-only and loaded from ignored `.env.local` or the runtime environment. No secret belongs in a `VITE_*` variable. Requests go only to the pinned official endpoint with redirects disabled.
 
-- Quantize state windows and cache judgments by feature hash and judge version.
-- Evaluate only meaningful state changes, at a capped rate, not every frame.
-- Enforce server-side per-session limits and an overall budget. Do not rely on UI limits.
-- Require authentication or another abuse control for paid inference.
-- Keep curated demo judgments precomputed and the default upload path local.
-- Benchmark on annotated clips against the deterministic baseline. Compare precision, missed events, calibration, latency, and actual observed spend.
+Defaults are 60 lifetime requests, 250,000 accounted input tokens and 12 calls per job. SQLite reserves conservative tokens before transmission, then records actual returned usage. Failed/ambiguous requests keep their reservation and are not automatically retried. The limits survive a process restart **only if `.local/jev.sqlite3` persists**. Do not delete this file to clear an analysis cache.
 
-An API adapter without validated perception would add expense without fixing the biggest source of error. The next investment should be a reliable, licensed player/ball detector and automatic camera calibration.
+The state payload is bounded to 24 KB. Calls normally occur every two seconds or after a phase transition with a minimum one-second spacing. Identical canonical requests use a content-addressed cache. When the budget is exhausted, the neural/state pipeline continues and the UI reports unavailable Jev judgments.
+
+The estimate uses the published $0.042 per million input tokens for Jev 1.13.0, with free output tokens, checked during implementation against [model documentation](https://docs.typesafe.ai/models). It is an estimate, not an account balance or provider invoice. Public workloads are additionally bounded by the daily job limit. Change caps deliberately rather than treating available credit as an instruction to consume it.
