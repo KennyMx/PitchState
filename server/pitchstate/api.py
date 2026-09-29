@@ -102,7 +102,7 @@ def health(request: Request):
     response = JSONResponse(
         {
             "ready": available,
-            "pipeline": "neural-soccer-v2",
+            "pipeline": "offline-soccer-v3",
             "jevConfigured": bool(os.getenv("JEV_API_KEY")),
             "maxClipSeconds": 60,
             "sampleFps": 5,
@@ -153,7 +153,6 @@ def run_job(job):
             use_jev=job["jev"],
             home_attacks_right=job["homeAttacksRight"],
             progress=progress,
-            on_frame=lambda preview: job.update(preview=preview),
             cancelled=job["cancel"].is_set,
             output=JOBS / job["id"] / "analysis.json",
         )

@@ -23,13 +23,7 @@ import { analyzeVideo } from './core/analyze';
 import Pitch from './components/Pitch';
 import PipelineInsights from './components/PipelineInsights';
 import ReplayOverlay from './components/ReplayOverlay';
-import {
-  analyzeWithPipeline,
-  getHealth,
-  loadRealDemo,
-  type Health,
-  type Preview,
-} from './core/pipeline';
+import { analyzeWithPipeline, getHealth, loadRealDemo, type Health } from './core/pipeline';
 import { homography, enrichFrames, type BallMark, type Matrix } from './core/geometry';
 import { detectEvents, frameAt, type Point } from './core/model';
 const demo = createDemo();
@@ -57,7 +51,6 @@ export default function App() {
     [uploadMode, setUploadMode] = useState<'pipeline' | 'browser'>('pipeline'),
     [jobStage, setJobStage] = useState('preparing'),
     [homeAttacksRight, setHomeAttacksRight] = useState(true);
-  const [preview, setPreview] = useState<Preview | null>(null);
   const [videoSize, setVideoSize] = useState({ w: 16, h: 9 });
   const [matrix, setMatrix] = useState<Matrix | null>(null),
     [marks, setMarks] = useState<BallMark[]>([]),
@@ -131,6 +124,41 @@ export default function App() {
     return () => cancelAnimationFrame(id);
   }, [playing, rate, footage, analysis.duration]);
   useEffect(() => {
+    const element = video.current;
+    if (!footage || !element) return;
+    let callback = 0;
+    let animation = 0;
+    let stopped = false;
+    const update = (t: number) => {
+      setTime(Math.min(t, analysis.duration));
+      if (t >= analysis.duration) {
+        element.pause();
+        setPlaying(false);
+      }
+    };
+    // Decode/presentation clock preserves source cadence, including 60 FPS footage.
+    if (typeof element.requestVideoFrameCallback === 'function') {
+      const next = (_now: number, metadata: VideoFrameCallbackMetadata) => {
+        if (stopped) return;
+        update(metadata.mediaTime);
+        callback = element.requestVideoFrameCallback(next);
+      };
+      callback = element.requestVideoFrameCallback(next);
+    } else {
+      const next = () => {
+        if (stopped) return;
+        if (!element.paused) update(element.currentTime);
+        animation = requestAnimationFrame(next);
+      };
+      animation = requestAnimationFrame(next);
+    }
+    return () => {
+      stopped = true;
+      if (callback) element.cancelVideoFrameCallback(callback);
+      cancelAnimationFrame(animation);
+    };
+  }, [footage, videoUrl, analysis.duration]);
+  useEffect(() => {
     if (!video.current) return;
     video.current.playbackRate = rate;
     if (playing)
@@ -202,7 +230,6 @@ export default function App() {
     setError('');
     setPlaying(false);
     setProgress(0);
-    setPreview(null);
     const controller = new AbortController();
     abort.current = controller;
     try {
@@ -210,8 +237,7 @@ export default function App() {
         uploadMode === 'pipeline'
           ? await analyzeWithPipeline(
               file,
-              (n, stage, partial) => {
-                if (partial) setPreview(partial);
+              (n, stage) => {
                 setProgress(n);
                 setJobStage(stage);
               },
@@ -413,14 +439,9 @@ export default function App() {
                         e.currentTarget.currentTime = time;
                       }}
                       playsInline
-                      onTimeUpdate={(e) => {
-                        const t = e.currentTarget.currentTime;
-                        setTime(Math.min(t, analysis.duration));
-                        if (t >= analysis.duration) {
-                          e.currentTarget.pause();
-                          setPlaying(false);
-                        }
-                      }}
+                      onSeeked={(e) =>
+                        setTime(Math.min(e.currentTarget.currentTime, analysis.duration))
+                      }
                       onEnded={() => setPlaying(false)}
                       onError={() => setError('The browser cannot play this video. Try H.264 MP4.')}
                     />
@@ -976,40 +997,11 @@ export default function App() {
                     }}
                   />
                 </div>
-                {progress !== null && preview && (
-                  <div className="processing-preview">
-                    <div className="eyebrow">
-                      FIRST READ · {preview.frame.time.toFixed(1)}s ANALYZED
-                    </div>
-                    <Pitch
-                      frames={[preview.frame]}
-                      time={preview.frame.time}
-                      selected={-1}
-                      onSelect={() => {}}
-                      trails={false}
-                      shape={true}
-                      heat={false}
-                      local={!preview.frame.calibration?.valid}
-                    />
-                    <p>
-                      {preview.frame.players.length} tracks · Ball{' '}
-                      {preview.frame.ball?.status ?? 'unavailable'} ·{' '}
-                      {preview.frame.calibration?.valid
-                        ? 'Pitch calibrated'
-                        : 'Awaiting pitch geometry'}
-                    </p>
-                    {preview.judgment?.nextAction && (
-                      <strong>
-                        Jev at {preview.judgment.time.toFixed(1)}s:{' '}
-                        {preview.judgment.nextAction.choice.replaceAll('_', ' ')} (
-                        {Math.round(
-                          Math.max(...Object.values(preview.judgment.nextAction.probabilities)) *
-                            100,
-                        )}
-                        %)
-                      </strong>
-                    )}
-                  </div>
+                {progress !== null && uploadMode === 'pipeline' && (
+                  <p>
+                    We analyze the complete clip, refine tracks and compute every judgment before
+                    opening replay.
+                  </p>
                 )}
                 {error && (
                   <p className="error" role="alert">

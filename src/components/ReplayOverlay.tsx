@@ -58,7 +58,7 @@ export default function ReplayOverlay({
             fill="none"
             stroke={frame.ball.status === 'observed' ? '#fff277' : '#ffb96b'}
             strokeWidth="3"
-            strokeDasharray={frame.ball.status === 'predicted' ? '5 4' : undefined}
+            strokeDasharray={frame.ball.status !== 'observed' ? '5 4' : undefined}
           />
           <text
             x={(frame.ball.image.x / 100) * width + 20}
@@ -66,7 +66,7 @@ export default function ReplayOverlay({
             fontSize="16"
             fill="#fff277"
           >
-            {frame.ball.status === 'predicted' ? 'predicted' : 'ball'}
+            {frame.ball.status === 'observed' ? 'ball' : frame.ball.status}
           </text>
         </g>
       )}

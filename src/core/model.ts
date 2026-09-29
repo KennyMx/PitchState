@@ -18,7 +18,7 @@ export interface Player extends Point {
 export interface Ball extends Point {
   image?: Point;
   confidence?: number;
-  status?: 'observed' | 'predicted';
+  status?: 'observed' | 'predicted' | 'reconstructed';
 }
 export interface Frame {
   time: number;
@@ -88,9 +88,23 @@ export function frameAt(frames: Frame[], time: number): Frame {
     time,
     players: a.players.map((p) => {
       const q = b.players.find((x) => x.id === p.id);
-      return q ? { ...p, ...blend(p, q) } : p;
+      return q
+        ? {
+            ...p,
+            ...blend(p, q),
+            image: p.image && q.image ? blend(p.image, q.image) : p.image,
+            box: p.box && q.box ? p.box.map((v, i) => v + (q.box![i] - v) * ratio) : p.box,
+          }
+        : p;
     }),
-    ball: a.ball && b.ball ? { ...a.ball, ...blend(a.ball, b.ball) } : a.ball,
+    ball:
+      a.ball && b.ball
+        ? {
+            ...a.ball,
+            ...blend(a.ball, b.ball),
+            image: a.ball.image && b.ball.image ? blend(a.ball.image, b.ball.image) : a.ball.image,
+          }
+        : a.ball,
   };
 }
 export function stateAt(frames: Frame[], time: number) {

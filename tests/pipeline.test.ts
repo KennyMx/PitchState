@@ -43,3 +43,28 @@ it('never displays a future Jev judgment when seeking backward', () => {
   expect(judgmentAt(analysis, 2)?.source).toBe('unavailable');
   expect(judgmentAt(analysis, 3)?.nextAction?.choice).toBe('pass');
 });
+
+it('interpolates image boxes and ball at a 60Hz replay cadence from 5Hz observations', () => {
+  const frames: Frame[] = [0, 0.2].map((time) => ({
+    time,
+    players: [
+      {
+        id: 1,
+        team: 'home',
+        confidence: 0.9,
+        x: time * 10,
+        y: 20,
+        box: [time * 600, 0, 40 + time * 600, 80],
+        image: { x: time * 60, y: 50 },
+      },
+    ],
+    ball: { x: time * 10, y: 20, image: { x: time * 60, y: 50 }, status: 'observed' },
+    calibration: { valid: true, shot: 0 },
+    coordinateSpace: 'pitch',
+  }));
+  for (let i = 0; i <= 12; i++) {
+    const f = frameAt(frames, i / 60);
+    expect(f.players[0].box![0]).toBeCloseTo(i * 10);
+    expect(f.ball!.image!.x).toBeCloseTo(i);
+  }
+});
