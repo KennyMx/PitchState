@@ -1446,3 +1446,100 @@ progress {
   font-weight: 500;
   color: #c1e89a;
 }
+
+.action-overlay {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 3;
+  width: clamp(170px, 30%, 250px);
+  padding: 12px 14px 10px;
+  border: 1px solid #d1fa913d;
+  border-radius: 10px;
+  background: #101b15ed;
+  box-shadow: 0 6px 24px #0005;
+  color: #edffd9;
+  pointer-events: none;
+  contain: layout paint;
+}
+.action-overlay-caption {
+  font-size: 9px;
+  letter-spacing: 0.09em;
+  color: #b4c4ab;
+}
+.action-overlay-value {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 5px 0 8px;
+  animation: action-arrive 180ms ease-out;
+}
+.action-overlay-value strong {
+  font-size: clamp(16px, 2vw, 23px);
+  font-weight: 650;
+}
+.action-overlay-value span {
+  font-size: 24px;
+  color: #d0f895;
+  font-variant-numeric: tabular-nums;
+}
+.action-overlay-value small {
+  font-size: 13px;
+}
+.action-overlay-meter {
+  height: 3px;
+  background: #d0f89520;
+  border-radius: 4px;
+  overflow: hidden;
+}
+.action-overlay-meter i {
+  display: block;
+  height: 100%;
+  background: #d0f895;
+  transform-origin: left;
+  transition: transform 220ms ease-out;
+}
+.action-overlay-detail {
+  margin-top: 7px;
+  font-size: 9px;
+  color: #a6b5a2;
+}
+.action-overlay.unavailable {
+  opacity: 0.85;
+}
+@keyframes action-arrive {
+  from {
+    opacity: 0.35;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (max-width: 600px) {
+  .action-overlay {
+    right: 8px;
+    bottom: 8px;
+    padding: 8px 10px;
+    width: 174px;
+  }
+  .action-overlay-caption {
+    font-size: 8px;
+  }
+  .action-overlay-value {
+    margin: 3px 0 5px;
+  }
+  .action-overlay-value span {
+    font-size: 19px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .action-overlay-value {
+    animation: none;
+  }
+  .action-overlay-meter i {
+    transition: none;
+  }
+}

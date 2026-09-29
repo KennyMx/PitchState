@@ -1,7 +1,8 @@
+import { memo } from 'react';
 import { Activity, BrainCircuit, Eye, Radio, ShieldCheck } from 'lucide-react';
 import type { Analysis } from '../core/model';
 import { humanize, judgmentAt, rawFrameAt } from '../core/pipeline';
-export default function PipelineInsights({
+function PipelineInsights({
   analysis,
   time,
   onSeek,
@@ -193,3 +194,5 @@ export default function PipelineInsights({
     </section>
   );
 }
+
+export default memo(PipelineInsights);

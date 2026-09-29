@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Activity,
   ArrowDownToLine,
@@ -23,6 +23,7 @@ import { analyzeVideo } from './core/analyze';
 import Pitch from './components/Pitch';
 import PipelineInsights from './components/PipelineInsights';
 import ReplayOverlay from './components/ReplayOverlay';
+import ActionOverlay from './components/ActionOverlay';
 import { analyzeWithPipeline, getHealth, loadRealDemo, type Health } from './core/pipeline';
 import { homography, enrichFrames, type BallMark, type Matrix } from './core/geometry';
 import { detectEvents, frameAt, type Point } from './core/model';
@@ -201,10 +202,10 @@ export default function App() {
       previous?.focus();
     };
   }, [modal]);
-  const seek = (t: number) => {
+  const seek = useCallback((t: number) => {
     setTime(t);
     if (video.current) video.current.currentTime = t;
-  };
+  }, []);
   const togglePlay = () => {
     setTool(null);
     if (time >= analysis.duration) seek(0);
@@ -449,6 +450,9 @@ export default function App() {
                       }}
                       onError={() => setError('The browser cannot play this video. Try H.264 MP4.')}
                     />
+                    {pipeline && (
+                      <ActionOverlay analysis={analysis} time={Math.floor(time * 5) / 5} />
+                    )}
                     {pipeline ? (
                       <ReplayOverlay
                         frame={frameAt(analysis.frames, time)}
@@ -718,7 +722,9 @@ export default function App() {
             <span className="keyboard">Space to play / pause</span>
           </div>
         </div>
-        {pipeline && <PipelineInsights analysis={analysis} time={time} onSeek={seek} />}
+        {pipeline && (
+          <PipelineInsights analysis={analysis} time={Math.floor(time * 5) / 5} onSeek={seek} />
+        )}
         <div className="insights-grid">
           <section className="card state-card">
             <div className="card-heading">
