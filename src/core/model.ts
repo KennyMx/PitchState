@@ -1,4 +1,5 @@
-export type Team = 'home' | 'away';
+import type { Judgment, PipelineState } from './pipeline';
+export type Team = 'home' | 'away' | 'unknown';
 export interface Point {
   x: number;
   y: number;
@@ -7,11 +8,34 @@ export interface Player extends Point {
   id: number;
   team: Team;
   confidence: number;
+  teamConfidence?: number;
+  image?: Point;
+  box?: number[];
+  role?: string;
+  speedMps?: number | null;
+  distanceMeters?: number | null;
+}
+export interface Ball extends Point {
+  image?: Point;
+  confidence?: number;
+  status?: 'observed' | 'predicted';
 }
 export interface Frame {
   time: number;
   players: Player[];
-  ball: Point | null;
+  ball: Ball | null;
+  coordinateSpace?: 'pitch' | 'image';
+  calibration?: {
+    valid: boolean;
+    confidence?: number;
+    shot: number;
+    cut?: boolean;
+    method?: string;
+    reprojectionErrorMeters?: number;
+    landmarks?: number;
+    inliers?: number;
+  };
+  state?: PipelineState;
 }
 export interface Event {
   time: number;
@@ -23,7 +47,20 @@ export interface Analysis {
   frames: Frame[];
   duration: number;
   events: Event[];
-  source: 'simulation' | 'local';
+  source: 'simulation' | 'local' | 'pipeline';
+  judgments?: Judgment[];
+  videoUrl?: string;
+  sampleFps?: number;
+  quality?: {
+    frames: number;
+    uniqueTracks: number;
+    ballObservedFraction: number;
+    ballPredictedFraction: number;
+    calibratedFraction: number;
+    possessionKnownFraction: number;
+    processingSeconds: number;
+    jevResponses: number;
+  };
   name: string;
 }
 export const distance = (a: Point, b: Point) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -38,18 +75,22 @@ export function frameAt(frames: Frame[], time: number): Frame {
   }
   const a = frames[lo],
     b = frames[Math.min(lo + 1, frames.length - 1)];
-  const ratio = Math.max(0, Math.min(1, (time - a.time) / (b.time - a.time || 1)));
+  const ratio =
+    a.coordinateSpace !== b.coordinateSpace || a.calibration?.shot !== b.calibration?.shot
+      ? 0
+      : Math.max(0, Math.min(1, (time - a.time) / (b.time - a.time || 1)));
   const blend = (p: Point, q: Point): Point => ({
     x: p.x + (q.x - p.x) * ratio,
     y: p.y + (q.y - p.y) * ratio,
   });
   return {
+    ...a,
     time,
     players: a.players.map((p) => {
       const q = b.players.find((x) => x.id === p.id);
       return q ? { ...p, ...blend(p, q) } : p;
     }),
-    ball: a.ball && b.ball ? blend(a.ball, b.ball) : a.ball,
+    ball: a.ball && b.ball ? { ...a.ball, ...blend(a.ball, b.ball) } : a.ball,
   };
 }
 export function stateAt(frames: Frame[], time: number) {
@@ -77,6 +118,16 @@ export function stateAt(frames: Frame[], time: number) {
         : frame.ball!.x > 70 && owner.team === 'home'
           ? 'Final-third entry'
           : 'Building possession';
+  if (frame.state)
+    return {
+      frame,
+      owner: frame.players.find((p) => p.id === frame.state!.carrierId),
+      width: (frame.state.teams.home.widthMeters ?? 0) / 0.68,
+      depth: (frame.state.teams.home.depthMeters ?? 0) / 1.05,
+      pressure: frame.state.evidence.pressureCount,
+      advance: frame.state.evidence.forwardProgressMps ?? 0,
+      phase: frame.state.phase.replaceAll('_', ' ').replace(/^./, (c) => c.toUpperCase()),
+    };
   return { frame, owner, width, depth, pressure, advance, phase };
 }
 // Stateful event suppression: a signal must persist for 0.5s; recurring events cool down for 4s.
@@ -119,6 +170,9 @@ export function detectEvents(frames: Frame[]): Event[] {
   return events;
 }
 export function playerMetrics(frames: Frame[], id: number, time: number) {
+  const current = frameAt(frames, time).players.find((p) => p.id === id);
+  if (frames[0]?.state)
+    return { distance: current?.distanceMeters ?? 0, speed: (current?.speedMps ?? 0) * 3.6 };
   let total = 0,
     speed = 0;
   for (let i = 1; i < frames.length && frames[i].time <= time; i++) {
