@@ -12,3 +12,5 @@ data/
 __pycache__/
 .pytest_cache/
 *.pyc
+
+!.env.example
