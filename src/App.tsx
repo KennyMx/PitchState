@@ -21,6 +21,9 @@ import { createDemo } from './core/demo';
 import { playerMetrics, stateAt, type Analysis } from './core/model';
 import { analyzeVideo } from './core/analyze';
 import Pitch from './components/Pitch';
+import PipelineInsights from './components/PipelineInsights';
+import ReplayOverlay from './components/ReplayOverlay';
+import { analyzeWithPipeline, getHealth, loadRealDemo, type Health } from './core/pipeline';
 import { homography, enrichFrames, type BallMark, type Matrix } from './core/geometry';
 import { detectEvents, frameAt, type Point } from './core/model';
 const demo = createDemo();
@@ -44,6 +47,10 @@ export default function App() {
     [error, setError] = useState(''),
     [videoUrl, setVideoUrl] = useState(''),
     [tab, setTab] = useState<'moments' | 'players'>('moments');
+  const [health, setHealth] = useState<Health | null>(null),
+    [uploadMode, setUploadMode] = useState<'pipeline' | 'browser'>('pipeline'),
+    [jobStage, setJobStage] = useState('preparing'),
+    [homeAttacksRight, setHomeAttacksRight] = useState(true);
   const [videoSize, setVideoSize] = useState({ w: 16, h: 9 });
   const [matrix, setMatrix] = useState<Matrix | null>(null),
     [marks, setMarks] = useState<BallMark[]>([]),
@@ -54,7 +61,11 @@ export default function App() {
     abort = useRef<AbortController | null>(null),
     workspace = useRef<HTMLDivElement>(null);
   const local = analysis.source === 'local',
-    calibrated = !local || matrix !== null;
+    pipeline = analysis.source === 'pipeline',
+    footage = local || pipeline;
+  const calibrated = pipeline
+    ? Boolean(frameAt(analysis.frames, time).calibration?.valid)
+    : !local || matrix !== null;
   const activeAnalysis = useMemo(() => {
     if (!local) return analysis;
     const frames = enrichFrames(analysis.frames, matrix, marks);
@@ -73,7 +84,27 @@ export default function App() {
   );
   useEffect(() => () => abort.current?.abort(), []);
   useEffect(() => {
-    if (!playing || local) return;
+    let mounted = true;
+    void getHealth()
+      .then(async (h) => {
+        if (!mounted) return;
+        setHealth(h);
+        if (h.demoAvailable) {
+          const real = await loadRealDemo();
+          if (!mounted) return;
+          setAnalysis({ ...real, name: 'Bundesliga · real match analysis' });
+          setVideoUrl('/api/demo/video');
+          setTime(1);
+          setSelected(real.frames[0]?.players.find((p) => p.team === 'home')?.id ?? 1);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      mounted = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!playing || footage) return;
     let prev = performance.now();
     let id = 0;
     const tick = (now: number) => {
@@ -91,7 +122,7 @@ export default function App() {
     };
     id = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(id);
-  }, [playing, rate, local, analysis.duration]);
+  }, [playing, rate, footage, analysis.duration]);
   useEffect(() => {
     if (!video.current) return;
     video.current.playbackRate = rate;
@@ -167,12 +198,23 @@ export default function App() {
     const controller = new AbortController();
     abort.current = controller;
     try {
-      const result = await analyzeVideo(file, setProgress, controller.signal);
+      const result =
+        uploadMode === 'pipeline'
+          ? await analyzeWithPipeline(
+              file,
+              (n, stage) => {
+                setProgress(n);
+                setJobStage(stage);
+              },
+              controller.signal,
+              homeAttacksRight,
+            )
+          : await analyzeVideo(file, setProgress, controller.signal);
       setMatrix(null);
       setMarks([]);
       setTool(null);
       setCorners([]);
-      setVideoUrl(URL.createObjectURL(file));
+      setVideoUrl(result.videoUrl ?? URL.createObjectURL(file));
       setAnalysis(result);
       setTime(0);
       setSelected(result.frames[0]?.players[0]?.id ?? 1);
@@ -192,11 +234,11 @@ export default function App() {
           JSON.stringify(
             {
               ...activeAnalysis,
-              schemaVersion: 1,
+              schemaVersion: pipeline ? 2 : 1,
               calibration: matrix,
               ballMarks: marks,
               coordinates: calibrated ? 'normalized-pitch' : 'normalized-image',
-              judgment: 'deterministic-heuristics',
+              judgment: pipeline ? 'jev-and-state-rules' : 'deterministic-heuristics',
             },
             null,
             2,
@@ -272,7 +314,8 @@ export default function App() {
         </nav>
         <div className="header-right">
           <span className="privacy">
-            <span className="status-dot" /> Local-first analysis
+            <span className="status-dot" />{' '}
+            {health?.ready ? 'Neural pipeline ready' : 'Inference companion offline'}
           </span>
           <a href="https://github.com/KennyMx/PitchState" target="_blank" rel="noreferrer">
             GitHub ↗
@@ -307,16 +350,21 @@ export default function App() {
               <div>
                 <strong>{analysis.name}</strong>
                 <span>
-                  {local
-                    ? 'Your clip · experimental tracking'
-                    : 'Example 01 · a transition through the left channel'}
+                  {pipeline
+                    ? 'Neural perception → game state → Jev forecasts'
+                    : local
+                      ? 'Your clip · experimental tracking'
+                      : 'Example 01 · a transition through the left channel'}
                 </span>
               </div>
             </div>
             <div className="workspace-meta">
-              <span className="tag">{local ? 'LOCAL CLIP' : 'SIMULATED PLAY'}</span>
+              <span className="tag">
+                {pipeline ? 'REAL FOOTAGE · JEV' : local ? 'LOCAL CLIP' : 'SIMULATED PLAY'}
+              </span>
               <span>
-                {clock(analysis.duration)} <span className="muted">/</span> {local ? '5' : '10'} Hz
+                {clock(analysis.duration)} <span className="muted">/</span> {footage ? '5' : '10'}{' '}
+                Hz
               </span>
               <button
                 className="icon-button"
@@ -332,90 +380,112 @@ export default function App() {
               <div className="view-top">
                 <span>
                   <span className="status-dot" />
-                  {local ? 'ORIGINAL FOOTAGE' : 'TACTICAL REPLAY'}
+                  {footage ? 'ORIGINAL FOOTAGE' : 'TACTICAL REPLAY'}
                 </span>
                 <span>
-                  {local ? 'On-device processing' : 'Illustrative sequence · not match footage'}
+                  {pipeline
+                    ? 'Learned player + ball detection'
+                    : local
+                      ? 'On-device processing'
+                      : 'Illustrative sequence · not match footage'}
                 </span>
               </div>
               <div className={`stage ${tool ? 'marking' : ''}`} onClick={markPoint}>
-                {local ? (
+                {footage ? (
                   <>
                     <video
                       ref={video}
                       src={videoUrl}
-                      onLoadedMetadata={(e) =>
+                      onLoadedMetadata={(e) => {
                         setVideoSize({
                           w: e.currentTarget.videoWidth,
                           h: e.currentTarget.videoHeight,
-                        })
-                      }
+                        });
+                        e.currentTarget.currentTime = time;
+                      }}
                       playsInline
-                      onTimeUpdate={(e) => setTime(e.currentTarget.currentTime)}
+                      onTimeUpdate={(e) => {
+                        const t = e.currentTarget.currentTime;
+                        setTime(Math.min(t, analysis.duration));
+                        if (t >= analysis.duration) {
+                          e.currentTarget.pause();
+                          setPlaying(false);
+                        }
+                      }}
                       onEnded={() => setPlaying(false)}
                       onError={() => setError('The browser cannot play this video. Try H.264 MP4.')}
                     />
-                    <svg
-                      className="video-overlay"
-                      viewBox={`0 0 ${videoSize.w} ${videoSize.h}`}
-                      aria-hidden="true"
-                    >
-                      {frameAt(analysis.frames, time).players.map((p) => (
-                        <g key={p.id}>
-                          <rect
-                            x={((p.x - 1.2) / 100) * videoSize.w}
-                            y={((p.y - 6) / 100) * videoSize.h}
-                            width={0.024 * videoSize.w}
-                            height={0.06 * videoSize.h}
-                            rx="2"
-                            fill="none"
-                            stroke={p.team === 'home' ? '#ffc5b3' : '#a7c8ff'}
-                            strokeWidth={videoSize.w / 500}
-                          />
-                          <text
-                            x={(p.x / 100) * videoSize.w}
-                            y={((p.y - 7) / 100) * videoSize.h}
-                            fontSize={videoSize.w / 65}
-                            fill="white"
-                            textAnchor="middle"
-                          >
-                            {p.id}
-                          </text>
-                        </g>
-                      ))}
-                      {corners.map((p, i) => (
-                        <g key={i}>
-                          <circle
-                            cx={(p.x / 100) * videoSize.w}
-                            cy={(p.y / 100) * videoSize.h}
-                            r={videoSize.w / 100}
-                            fill="#c5ef86"
-                          />
-                          <text
-                            x={(p.x / 100) * videoSize.w}
-                            y={(p.y / 100) * videoSize.h + videoSize.w / 220}
-                            fontSize={videoSize.w / 70}
-                            textAnchor="middle"
-                            fill="#142016"
-                          >
-                            {i + 1}
-                          </text>
-                        </g>
-                      ))}
-                      {marks
-                        .filter((m) => Math.abs(m.time - time) < 0.5)
-                        .map((m) => (
-                          <circle
-                            key={m.time}
-                            cx={(m.x / 100) * videoSize.w}
-                            cy={(m.y / 100) * videoSize.h}
-                            r={videoSize.w / 120}
-                            fill="none"
-                            stroke="white"
-                            strokeWidth={videoSize.w / 400}
-                          />
+                    {pipeline ? (
+                      <ReplayOverlay
+                        frame={frameAt(analysis.frames, time)}
+                        width={videoSize.w}
+                        height={videoSize.h}
+                        selected={selected}
+                        onSelect={setSelected}
+                      />
+                    ) : (
+                      <svg
+                        className="video-overlay"
+                        viewBox={`0 0 ${videoSize.w} ${videoSize.h}`}
+                        aria-hidden="true"
+                      >
+                        {frameAt(analysis.frames, time).players.map((p) => (
+                          <g key={p.id}>
+                            <rect
+                              x={((p.x - 1.2) / 100) * videoSize.w}
+                              y={((p.y - 6) / 100) * videoSize.h}
+                              width={0.024 * videoSize.w}
+                              height={0.06 * videoSize.h}
+                              rx="2"
+                              fill="none"
+                              stroke={p.team === 'home' ? '#ffc5b3' : '#a7c8ff'}
+                              strokeWidth={videoSize.w / 500}
+                            />
+                            <text
+                              x={(p.x / 100) * videoSize.w}
+                              y={((p.y - 7) / 100) * videoSize.h}
+                              fontSize={videoSize.w / 65}
+                              fill="white"
+                              textAnchor="middle"
+                            >
+                              {p.id}
+                            </text>
+                          </g>
                         ))}
-                    </svg>
+                        {corners.map((p, i) => (
+                          <g key={i}>
+                            <circle
+                              cx={(p.x / 100) * videoSize.w}
+                              cy={(p.y / 100) * videoSize.h}
+                              r={videoSize.w / 100}
+                              fill="#c5ef86"
+                            />
+                            <text
+                              x={(p.x / 100) * videoSize.w}
+                              y={(p.y / 100) * videoSize.h + videoSize.w / 220}
+                              fontSize={videoSize.w / 70}
+                              textAnchor="middle"
+                              fill="#142016"
+                            >
+                              {i + 1}
+                            </text>
+                          </g>
+                        ))}
+                        {marks
+                          .filter((m) => Math.abs(m.time - time) < 0.5)
+                          .map((m) => (
+                            <circle
+                              key={m.time}
+                              cx={(m.x / 100) * videoSize.w}
+                              cy={(m.y / 100) * videoSize.h}
+                              r={videoSize.w / 120}
+                              fill="none"
+                              stroke="white"
+                              strokeWidth={videoSize.w / 400}
+                            />
+                          ))}
+                      </svg>
+                    )}
                   </>
                 ) : (
                   <>
@@ -439,7 +509,8 @@ export default function App() {
                 <div className="stage-bottom">
                   <span className="small-tag">
                     <Crosshair size={13} />
-                    {state.frame.players.length} player {local ? 'candidates' : 'positions'}
+                    {state.frame.players.length} player{' '}
+                    {pipeline ? 'tracks' : local ? 'candidates' : 'positions'}
                   </span>
                   <button
                     className="icon-button"
@@ -456,12 +527,16 @@ export default function App() {
               <div className="view-caption">
                 <span>
                   <span className="legend home" />
-                  Home <span className="legend away" />
-                  Away <span className="legend ball" />
+                  {pipeline ? 'Team A' : 'Home'} <span className="legend away" />
+                  {pipeline ? 'Team B' : 'Away'} <span className="legend ball" />
                   Ball
                 </span>
                 <span>
-                  {local ? 'Red / blue kit baseline' : 'Select a player to explore their movement'}{' '}
+                  {pipeline
+                    ? 'IDs are tracks · yellow = observed ball'
+                    : local
+                      ? 'Red / blue kit baseline'
+                      : 'Select a player to explore their movement'}{' '}
                   <Crosshair size={12} />
                 </span>
               </div>
@@ -480,9 +555,11 @@ export default function App() {
                 <span>
                   {!calibrated
                     ? 'Uncalibrated · image coordinates'
-                    : local
-                      ? 'Calibrated · fixed camera only'
-                      : 'Top-down · normalized pitch'}
+                    : pipeline
+                      ? 'Automatic camera-aware pitch projection'
+                      : local
+                        ? 'Calibrated · fixed camera only'
+                        : 'Top-down · normalized pitch'}
                 </span>
                 <ArrowRight size={16} />
               </div>
@@ -607,6 +684,7 @@ export default function App() {
             <span className="keyboard">Space to play / pause</span>
           </div>
         </div>
+        {pipeline && <PipelineInsights analysis={analysis} time={time} onSeek={seek} />}
         <div className="insights-grid">
           <section className="card state-card">
             <div className="card-heading">
@@ -621,21 +699,31 @@ export default function App() {
               <span className="heuristic">HEURISTIC</span>
             </div>
             <p className="state-detail">
-              {local
-                ? matrix
-                  ? 'Assisted analysis uses your pitch corners and interpolated ball marks. Tracking and tactical signals still need visual review.'
-                  : 'Player positions are image-space estimates. Calibrate the pitch and mark the ball to explore tactical hypotheses.'
-                : state.phase === 'Quick progression'
-                  ? 'Home is moving the ball forward quickly. Watch the space opening behind the midfield line.'
-                  : state.phase === 'Under pressure'
-                    ? 'Opponents are closing the space around the ball. Watch the supporting passing options.'
-                    : 'Watch the distances between players as the shape adapts to the ball.'}
+              {pipeline
+                ? 'Causal state from tracked players, ball evidence, and automatic pitch calibration. See Jev’s separate judgment above.'
+                : local
+                  ? matrix
+                    ? 'Assisted analysis uses your pitch corners and interpolated ball marks. Tracking and tactical signals still need visual review.'
+                    : 'Player positions are image-space estimates. Calibrate the pitch and mark the ball to explore tactical hypotheses.'
+                  : state.phase === 'Quick progression'
+                    ? 'Home is moving the ball forward quickly. Watch the space opening behind the midfield line.'
+                    : state.phase === 'Under pressure'
+                      ? 'Opponents are closing the space around the ball. Watch the supporting passing options.'
+                      : 'Watch the distances between players as the shape adapts to the ball.'}
             </p>
             <div className="state-stats">
               <div>
                 <span>POSSESSION ESTIMATE</span>
                 <strong>
-                  {state.owner ? (state.owner.team === 'home' ? 'Home' : 'Away') : 'Unknown'}{' '}
+                  {state.owner
+                    ? state.owner.team === 'home'
+                      ? pipeline
+                        ? 'Team A'
+                        : 'Home'
+                      : pipeline
+                        ? 'Team B'
+                        : 'Away'
+                    : 'Unknown'}{' '}
                   {state.owner && <i className={`legend ${state.owner.team}`} />}
                 </strong>
               </div>
@@ -650,15 +738,17 @@ export default function App() {
                 <span>NEARBY OPPONENTS</span>
                 <strong>
                   {state.owner ? state.pressure : '—'}
-                  <small> within 12 units</small>
+                  <small> within {pipeline ? '6 m' : '12 units'}</small>
                 </strong>
               </div>
             </div>
             <div className="card-note">
               <ShieldCheck size={13} />{' '}
-              {local
-                ? 'Low-confidence observations · review visually'
-                : 'Rule-based signals · inspect the evidence below'}
+              {pipeline
+                ? 'Observed estimates · review calibration and ball confidence'
+                : local
+                  ? 'Low-confidence observations · review visually'
+                  : 'Rule-based signals · inspect the evidence below'}
             </div>
           </section>
           <section className="card moments-card">
@@ -731,7 +821,11 @@ export default function App() {
                 <div className="player-numbers">
                   <div>
                     <strong>
-                      {!calibrated ? '—' : metrics.speed.toFixed(1)}
+                      {!calibrated ||
+                      (pipeline &&
+                        state.frame.players.find((p) => p.id === selected)?.speedMps == null)
+                        ? '—'
+                        : metrics.speed.toFixed(1)}
                       <small>km/h</small>
                     </strong>
                     <span>Current speed</span>
@@ -745,9 +839,11 @@ export default function App() {
                   </div>
                 </div>
                 <p>
-                  {local
-                    ? 'Measurements require a fixed, calibrated camera. Kit detections and ID changes can distort estimates.'
-                    : 'Simulated measurements on a 105 × 68 m pitch. Select a marker on either view to follow that player.'}
+                  {pipeline
+                    ? 'Estimated from automatically calibrated track motion. Camera-fit errors and identity switches can distort measurements.'
+                    : local
+                      ? 'Measurements require a fixed, calibrated camera. Kit detections and ID changes can distort estimates.'
+                      : 'Simulated measurements on a 105 × 68 m pitch. Select a marker on either view to follow that player.'}
                 </p>
               </div>
             )}
@@ -796,9 +892,43 @@ export default function App() {
                 <div className="eyebrow">BRING YOUR OWN PLAY</div>
                 <h2 id="modal-title">Your clip. A new perspective.</h2>
                 <p>
-                  Experimental red / blue kit tracking, processed entirely in your browser. Use a
-                  stable, wide-angle clip for the best results.
+                  Soccer-trained models track players and the ball, reconstruct pitch geometry,
+                  maintain game state, and ask Jev what may happen next. Wide-angle match footage
+                  works best.
                 </p>
+                <div className="upload-options">
+                  <label>
+                    Analysis engine
+                    <select
+                      value={uploadMode}
+                      onChange={(e) => setUploadMode(e.target.value as 'pipeline' | 'browser')}
+                      disabled={progress !== null}
+                    >
+                      <option value="pipeline">Neural pipeline + Jev</option>
+                      <option value="browser">Legacy browser kit-color baseline</option>
+                    </select>
+                  </label>
+                  {uploadMode === 'pipeline' && (
+                    <>
+                      <label>
+                        Team A attack direction
+                        <select
+                          value={String(homeAttacksRight)}
+                          onChange={(e) => setHomeAttacksRight(e.target.value === 'true')}
+                          disabled={progress !== null}
+                        >
+                          <option value="true">Toward the right goal →</option>
+                          <option value="false">Toward the left goal ←</option>
+                        </select>
+                      </label>
+                      <p>
+                        {health?.ready
+                          ? 'Local inference worker connected. CPU analysis can take several minutes.'
+                          : 'Start the inference companion with npm run server. No synthetic results are substituted when it is offline.'}
+                      </p>
+                    </>
+                  )}
+                </div>
                 <div
                   className="dropzone"
                   onDragOver={(e) => e.preventDefault()}
@@ -812,7 +942,7 @@ export default function App() {
                   <strong>
                     {progress === null
                       ? 'Drop a soccer clip here'
-                      : `Reading the play… ${progress}%`}
+                      : `Analyzing… ${progress}% · ${jobStage}`}
                   </strong>
                   {progress === null ? (
                     <>
@@ -845,8 +975,9 @@ export default function App() {
                 <div className="upload-note">
                   <ShieldCheck size={17} />
                   <span>
-                    Your video never leaves this device. This baseline detects kit colors, not
-                    player identities or the ball. Camera motion and other colors reduce accuracy.
+                    {uploadMode === 'pipeline'
+                      ? 'Video is processed by your local inference companion. Compact game-state features are sent to TypeSafe for Jev judgments; raw video and your API key are never sent to the browser. Jobs expire after 24 hours on service startup.'
+                      : 'The legacy baseline stays in this browser and detects red/blue kit colors only.'}
                   </span>
                 </div>
                 <button
@@ -876,8 +1007,8 @@ export default function App() {
                   <div>
                     <h3>Observe the movement</h3>
                     <p>
-                      The example uses simulated positions. Your clips use a lightweight local
-                      kit-color detector and temporal association.
+                      Soccer-specific neural models detect players, goalkeepers, referees, the ball,
+                      and 32 pitch landmarks. Motion and appearance maintain tracks across frames.
                     </p>
                   </div>
                 </div>
@@ -896,9 +1027,9 @@ export default function App() {
                   <div>
                     <h3>Make the evidence visible</h3>
                     <p>
-                      Tactical rules use ball proximity and progression, with persistence and
-                      cooldowns. Jev is a future optional judge of structured state; it is not
-                      connected in this version.
+                      Jev evaluates compact state windows and returns tactical phase and next-action
+                      probability distributions. Missing evidence, predicted ball positions, and
+                      stale judgments remain explicit.
                     </p>
                   </div>
                 </div>
