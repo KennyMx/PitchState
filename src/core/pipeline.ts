@@ -16,6 +16,10 @@ export interface Judgment {
   reason?: string;
   usage?: { input_tokens: number; output_tokens: number };
 }
+export interface Preview {
+  frame: Frame;
+  judgment: Judgment | null;
+}
 export interface Health {
   ready: boolean;
   jevConfigured: boolean;
@@ -74,7 +78,7 @@ export async function loadRealDemo(): Promise<Analysis> {
 }
 export async function analyzeWithPipeline(
   file: File,
-  onProgress: (n: number, stage: string) => void,
+  onProgress: (n: number, stage: string, preview?: Preview) => void,
   signal: AbortSignal,
   homeAttacksRight = true,
 ): Promise<Analysis> {
@@ -96,8 +100,9 @@ export async function analyzeWithPipeline(
         progress: number;
         stage: string;
         error?: string;
+        preview?: Preview;
       }>(`/api/jobs/${job.id}`, { signal });
-      onProgress(status.progress, status.stage);
+      onProgress(status.progress, status.stage, status.preview);
       if (status.status === 'complete') {
         const result = await request<Analysis>(`/api/jobs/${job.id}/analysis`, { signal });
         return { ...result, videoUrl: `/api/jobs/${job.id}/video` };

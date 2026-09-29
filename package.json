@@ -9,7 +9,10 @@
     "preview": "vite preview --host 127.0.0.1",
     "test": "vitest run",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "server": ".venv/bin/python -m uvicorn server.pitchstate.api:app --host 127.0.0.1 --port 8000",
+    "test:server": ".venv/bin/python -m pytest server/tests -q",
+    "format:server": ".venv/bin/ruff format server scripts"
   },
   "dependencies": {
     "lucide-react": "^0.468.0",

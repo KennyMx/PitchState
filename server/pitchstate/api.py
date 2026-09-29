@@ -119,7 +119,9 @@ def health(request: Request):
 
 def public_job(job):
     return {
-        k: job[k] for k in ("id", "status", "progress", "stage", "error", "created") if k in job
+        k: job[k]
+        for k in ("id", "status", "progress", "stage", "error", "created", "preview")
+        if k in job
     }
 
 
@@ -144,6 +146,7 @@ def run_job(job):
             use_jev=job["jev"],
             home_attacks_right=job["homeAttacksRight"],
             progress=progress,
+            on_frame=lambda preview: job.update(preview=preview),
             cancelled=job["cancel"].is_set,
             output=JOBS / job["id"] / "analysis.json",
         )

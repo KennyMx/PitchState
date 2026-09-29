@@ -23,7 +23,13 @@ import { analyzeVideo } from './core/analyze';
 import Pitch from './components/Pitch';
 import PipelineInsights from './components/PipelineInsights';
 import ReplayOverlay from './components/ReplayOverlay';
-import { analyzeWithPipeline, getHealth, loadRealDemo, type Health } from './core/pipeline';
+import {
+  analyzeWithPipeline,
+  getHealth,
+  loadRealDemo,
+  type Health,
+  type Preview,
+} from './core/pipeline';
 import { homography, enrichFrames, type BallMark, type Matrix } from './core/geometry';
 import { detectEvents, frameAt, type Point } from './core/model';
 const demo = createDemo();
@@ -51,6 +57,7 @@ export default function App() {
     [uploadMode, setUploadMode] = useState<'pipeline' | 'browser'>('pipeline'),
     [jobStage, setJobStage] = useState('preparing'),
     [homeAttacksRight, setHomeAttacksRight] = useState(true);
+  const [preview, setPreview] = useState<Preview | null>(null);
   const [videoSize, setVideoSize] = useState({ w: 16, h: 9 });
   const [matrix, setMatrix] = useState<Matrix | null>(null),
     [marks, setMarks] = useState<BallMark[]>([]),
@@ -195,6 +202,7 @@ export default function App() {
     setError('');
     setPlaying(false);
     setProgress(0);
+    setPreview(null);
     const controller = new AbortController();
     abort.current = controller;
     try {
@@ -202,7 +210,8 @@ export default function App() {
         uploadMode === 'pipeline'
           ? await analyzeWithPipeline(
               file,
-              (n, stage) => {
+              (n, stage, partial) => {
+                if (partial) setPreview(partial);
                 setProgress(n);
                 setJobStage(stage);
               },
@@ -967,6 +976,41 @@ export default function App() {
                     }}
                   />
                 </div>
+                {progress !== null && preview && (
+                  <div className="processing-preview">
+                    <div className="eyebrow">
+                      FIRST READ · {preview.frame.time.toFixed(1)}s ANALYZED
+                    </div>
+                    <Pitch
+                      frames={[preview.frame]}
+                      time={preview.frame.time}
+                      selected={-1}
+                      onSelect={() => {}}
+                      trails={false}
+                      shape={true}
+                      heat={false}
+                      local={!preview.frame.calibration?.valid}
+                    />
+                    <p>
+                      {preview.frame.players.length} tracks · Ball{' '}
+                      {preview.frame.ball?.status ?? 'unavailable'} ·{' '}
+                      {preview.frame.calibration?.valid
+                        ? 'Pitch calibrated'
+                        : 'Awaiting pitch geometry'}
+                    </p>
+                    {preview.judgment?.nextAction && (
+                      <strong>
+                        Jev at {preview.judgment.time.toFixed(1)}s:{' '}
+                        {preview.judgment.nextAction.choice.replaceAll('_', ' ')} (
+                        {Math.round(
+                          Math.max(...Object.values(preview.judgment.nextAction.probabilities)) *
+                            100,
+                        )}
+                        %)
+                      </strong>
+                    )}
+                  </div>
+                )}
                 {error && (
                   <p className="error" role="alert">
                     {error}

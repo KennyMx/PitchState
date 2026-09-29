@@ -34,6 +34,7 @@ def analyze(
     use_jev=True,
     home_attacks_right=True,
     progress=None,
+    on_frame=None,
     cancelled=None,
     output: Path | None = None,
 ):
@@ -196,6 +197,8 @@ def analyze(
                     judge_count += 1
                     last_judge = timestamp
                     last_phase = frame["state"]["phase"]
+            if on_frame:
+                on_frame({"frame": frame, "judgment": judgments[-1] if judgments else None})
             if progress:
                 progress(
                     {

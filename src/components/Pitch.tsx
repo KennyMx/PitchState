@@ -110,7 +110,7 @@ export default function Pitch({
               .map((q) => `${q!.x},${q!.y}`)
               .join(' ')}
             fill="none"
-            stroke={p.team === 'home' ? '#d3f991' : '#9bafff'}
+            stroke={p.team === 'home' ? '#d3f991' : p.team === 'away' ? '#9bafff' : '#92998c'}
             strokeWidth={p.id === selected ? '.7' : '.3'}
             opacity={p.id === selected ? '.9' : '.35'}
           />
@@ -147,8 +147,8 @@ export default function Pitch({
             cy={p.y}
             rx="1.6"
             ry="2.5"
-            fill={p.team === 'home' ? '#c8ee85' : '#91a5ef'}
-            stroke={p.team === 'home' ? '#e7ffc1' : '#c3cfff'}
+            fill={p.team === 'home' ? '#c8ee85' : p.team === 'away' ? '#91a5ef' : '#acb3a5'}
+            stroke={p.team === 'home' ? '#e7ffc1' : p.team === 'away' ? '#c3cfff' : '#d1d6c9'}
             strokeWidth=".25"
           />
           <text
@@ -170,7 +170,7 @@ export default function Pitch({
             cy={frame.ball.y}
             rx="1"
             ry="1.5"
-            fill="white"
+            fill={frame.ball.status === 'predicted' ? '#ffb96b' : 'white'}
             stroke="#17241d"
             strokeWidth=".4"
           />
