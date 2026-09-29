@@ -36,7 +36,6 @@ def analyze(
     use_jev=True,
     home_attacks_right=True,
     progress=None,
-    on_frame=None,
     cancelled=None,
     output: Path | None = None,
 ):
@@ -238,6 +237,12 @@ def analyze(
         "possessionKnownFraction": round(
             sum(f["state"]["possession"] != "unknown" for f in frames) / total, 3
         ),
+        "contextAvailableFraction": round(
+            sum(f["state"]["context"]["canReason"] for f in frames) / total, 3
+        ),
+        "forecastAbstentions": sum(
+            j.get("nextAction", {}).get("choice") == "insufficient_evidence" for j in judgments
+        ),
         "processingSeconds": round(clock.monotonic() - start, 2),
         "jevResponses": sum(j["source"] == "jev" for j in judgments),
         "shots": camera.shot + 1,
@@ -256,6 +261,7 @@ def analyze(
         "quality": quality,
         "metadata": {
             "refinement": refinement,
+            "tacticalReference": {k: v for k, v in state.knowledge.items() if k != "guidance"},
             "forecastContext": "Retrospective reconstructed observations; no future action labels supplied. Not a leakage-free forecasting benchmark.",
             "perception": "Soccer-trained YOLOv8 player, ball, and pitch models",
             "tracking": "Two-stage Hungarian motion/appearance association; ball Kalman filter",

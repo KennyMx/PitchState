@@ -16,10 +16,6 @@ export interface Judgment {
   reason?: string;
   usage?: { input_tokens: number; output_tokens: number };
 }
-export interface Preview {
-  frame: Frame;
-  judgment: Judgment | null;
-}
 export interface Health {
   ready: boolean;
   jevConfigured: boolean;
@@ -27,6 +23,16 @@ export interface Health {
   budget: { completedCalls: number; estimatedCostUsd: number };
 }
 export interface PipelineState {
+  context?: {
+    attackingTeam: string | null;
+    contextSource: string;
+    canReason: boolean;
+    boxTargetIds?: number[];
+    boxEnteringRunIds?: number[];
+    clearPassingLaneIds?: number[];
+    crossingTerritory?: boolean;
+    distanceToGoalLineMeters?: number;
+  };
   possession: string;
   carrierId: number | null;
   phase: string;
@@ -78,7 +84,7 @@ export async function loadRealDemo(): Promise<Analysis> {
 }
 export async function analyzeWithPipeline(
   file: File,
-  onProgress: (n: number, stage: string, preview?: Preview) => void,
+  onProgress: (n: number, stage: string) => void,
   signal: AbortSignal,
   homeAttacksRight = true,
 ): Promise<Analysis> {
@@ -102,9 +108,8 @@ export async function analyzeWithPipeline(
         progress: number;
         stage: string;
         error?: string;
-        preview?: Preview;
       }>(`/api/jobs/${requestId}`, { signal });
-      onProgress(status.progress, status.stage, status.preview);
+      onProgress(status.progress, status.stage);
       if (status.status === 'complete') {
         const result = await request<Analysis>(`/api/jobs/${requestId}/analysis`, { signal });
         return { ...result, videoUrl: `/api/jobs/${requestId}/video` };

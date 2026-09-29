@@ -50,6 +50,7 @@ export interface Analysis {
   source: 'simulation' | 'local' | 'pipeline';
   judgments?: Judgment[];
   videoUrl?: string;
+  video?: { fps: number; width: number; height: number };
   sampleFps?: number;
   quality?: {
     frames: number;

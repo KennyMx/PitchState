@@ -77,7 +77,7 @@ export default function PipelineInsights({
                 {judgment!.model} · judged at {judgment!.time.toFixed(1)}s · {judgment!.latencyMs}{' '}
                 ms {judgment!.cached ? '· cached' : ''}
                 <br />
-                Model judgments, not validated match-outcome odds.
+                Precomputed from reconstructed context; not validated match-outcome odds.
               </div>
             </>
           ) : (
@@ -142,6 +142,25 @@ export default function PipelineInsights({
                   : 'Unavailable'}
               </dd>
             </div>
+            {s?.context && (
+              <div>
+                <dt>Attacking context</dt>
+                <dd>
+                  {s.context.canReason
+                    ? `${s.context.attackingTeam === 'home' ? 'Team A' : 'Team B'} · ${humanize(s.context.contextSource)}`
+                    : 'Unresolved'}
+                </dd>
+              </div>
+            )}
+            {s?.context?.crossingTerritory && (
+              <div>
+                <dt>Crossing situation</dt>
+                <dd>
+                  {s.context.boxTargetIds?.length ?? 0} box targets ·{' '}
+                  {s.context.boxEnteringRunIds?.length ?? 0} arriving runs
+                </dd>
+              </div>
+            )}
           </dl>
           <div className="judgment-ticks">
             {analysis.judgments?.map((j, i) => (
@@ -156,8 +175,8 @@ export default function PipelineInsights({
             ))}
           </div>
           <p className="forecast-note">
-            <ShieldCheck size={12} /> Missing observations remain unknown. Direction: Team A attacks{' '}
-            {s?.homeAttacksRight ? 'right' : 'left'}.
+            <ShieldCheck size={12} /> Short gaps may be reconstructed; long gaps stay unknown.
+            Direction: Team A attacks {s?.homeAttacksRight ? 'right' : 'left'}.
           </p>
         </section>
       </div>

@@ -126,9 +126,7 @@ def health(request: Request):
 
 def public_job(job):
     return {
-        k: job[k]
-        for k in ("id", "status", "progress", "stage", "error", "created", "preview")
-        if k in job
+        k: job[k] for k in ("id", "status", "progress", "stage", "error", "created") if k in job
     }
 
 

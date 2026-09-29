@@ -1,0 +1,79 @@
+{
+  "kind": "synthetic sensitivity, not predictive accuracy",
+  "model": "jev-1.13.0",
+  "referenceHash": "830dfb30f0fcd8694a4e596dbcbc9269eef6b65962f845362641380016ceb162",
+  "results": [
+    {
+      "scenario": "wide_approach",
+      "nextAction": {
+        "choice": "pass",
+        "probabilities": {
+          "cross": 0.19,
+          "shot": 0.0,
+          "insufficient_evidence": 0.0,
+          "stoppage": 0.0,
+          "turnover": 0.0,
+          "carry": 0.05,
+          "pass": 0.76
+        },
+        "confidence": 0.71
+      },
+      "source": "jev",
+      "cached": false
+    },
+    {
+      "scenario": "byline_with_targets",
+      "nextAction": {
+        "choice": "cross",
+        "probabilities": {
+          "shot": 0.0,
+          "cross": 0.93,
+          "turnover": 0.0,
+          "carry": 0.01,
+          "stoppage": 0.0,
+          "pass": 0.06,
+          "insufficient_evidence": 0.0
+        },
+        "confidence": 0.92
+      },
+      "source": "jev",
+      "cached": false
+    },
+    {
+      "scenario": "byline_empty_box",
+      "nextAction": {
+        "choice": "pass",
+        "probabilities": {
+          "stoppage": 0.02,
+          "turnover": 0.15,
+          "carry": 0.15,
+          "insufficient_evidence": 0.03,
+          "pass": 0.42,
+          "shot": 0.0,
+          "cross": 0.23
+        },
+        "confidence": 0.32
+      },
+      "source": "jev",
+      "cached": false
+    },
+    {
+      "scenario": "missing_ball",
+      "nextAction": {
+        "choice": "insufficient_evidence",
+        "probabilities": {
+          "stoppage": 0.0,
+          "insufficient_evidence": 1.0,
+          "cross": 0.0,
+          "carry": 0.0,
+          "turnover": 0.0,
+          "shot": 0.0,
+          "pass": 0.0
+        },
+        "confidence": 1.0
+      },
+      "source": "jev",
+      "cached": false
+    }
+  ]
+}

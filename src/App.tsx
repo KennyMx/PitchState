@@ -398,8 +398,9 @@ export default function App() {
                 {pipeline ? 'REAL FOOTAGE · JEV' : local ? 'LOCAL CLIP' : 'SIMULATED PLAY'}
               </span>
               <span>
-                {clock(analysis.duration)} <span className="muted">/</span> {footage ? '5' : '10'}{' '}
-                Hz
+                {clock(analysis.duration)} ·{' '}
+                {analysis.video ? `${analysis.video.fps} FPS replay · ` : ''}
+                {analysis.sampleFps ?? (footage ? 5 : 10)} Hz analysis
               </span>
               <button
                 className="icon-button"

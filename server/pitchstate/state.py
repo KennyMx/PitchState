@@ -222,6 +222,17 @@ class GameState:
         }
         frame["state"] = state
         state["context"] = contextual_features(frame, self.history, self.direction == 1)
+        if phase == "insufficient_evidence" and state["context"]["canReason"]:
+            # A plausible attacking team and location support a broad phase even during a pass.
+            phase = (
+                "settled_attack"
+                if state["context"]["distanceToGoalLineMeters"] < 35
+                else "build_up"
+            )
+            state["phase"] = phase
+            state["phaseSource"] = "context_hypothesis"
+        else:
+            state["phaseSource"] = "controlled_possession"
         signals = {phase} if phase != "insufficient_evidence" else set()
         if overload:
             signals.add("overload")
