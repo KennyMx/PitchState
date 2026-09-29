@@ -24,7 +24,12 @@ export default function Pitch({
 }: Props) {
   const frame = frameAt(frames, time),
     home = frame.players.filter((p) => p.team === 'home');
-  const trailFrames = frames.filter((f) => f.time <= time && f.time > time - 3);
+  const compatibleFrames = frames.filter(
+    (f) =>
+      f.coordinateSpace === frame.coordinateSpace &&
+      f.calibration?.shot === frame.calibration?.shot,
+  );
+  const trailFrames = compatibleFrames.filter((f) => f.time <= time && f.time > time - 3);
   return (
     <svg
       className={`pitch ${perspective ? 'perspective' : ''}`}
@@ -71,7 +76,7 @@ export default function Pitch({
         <path d="M16 39q8 11 0 22M84 39q-8 11 0 22M0 44h-2v12h2M100 44h2v12h-2" />
       </g>
       {heat &&
-        frames
+        compatibleFrames
           .filter((f, i) => i % 5 === 0 && f.time <= time)
           .flatMap((f) =>
             f.players

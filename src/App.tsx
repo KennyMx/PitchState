@@ -1020,7 +1020,7 @@ export default function App() {
                   <ShieldCheck size={17} />
                   <span>
                     {uploadMode === 'pipeline'
-                      ? 'Video is processed by your local inference companion. Compact game-state features are sent to TypeSafe for Jev judgments; raw video and your API key are never sent to the browser. Jobs expire after 24 hours on service startup.'
+                      ? 'Video is processed by your local inference companion. Compact game-state features are sent to TypeSafe for Jev judgments; raw video is not sent to Jev, and the API key stays on the server. Jobs older than 24 hours are removed on startup or the next upload.'
                       : 'The legacy baseline stays in this browser and detects red/blue kit colors only.'}
                   </span>
                 </div>
@@ -1062,7 +1062,8 @@ export default function App() {
                     <h3>Maintain the state</h3>
                     <p>
                       Positions, movement history and team geometry update with the playhead.
-                      Uploads stay in camera coordinates until calibrated.
+                      Learned pitch landmarks calibrate neural uploads; uncertain geometry falls
+                      back to camera coordinates.
                     </p>
                   </div>
                 </div>
