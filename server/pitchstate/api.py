@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import os
 import secrets
+import re
 import shutil
 import threading
 import time
@@ -25,6 +26,7 @@ jobs = {}
 lock = threading.Lock()
 executor = ThreadPoolExecutor(max_workers=1)
 models = None
+persist_lock = threading.Lock()
 
 
 @asynccontextmanager
@@ -41,7 +43,7 @@ async def lifespan(app):
             if time.time() - job["created"] > 86400:
                 shutil.rmtree(folder)
                 continue
-            if job["status"] in ("queued", "running"):
+            if job["status"] in ("uploading", "queued", "running"):
                 job["status"] = "failed"
                 job["error"] = "Service restarted during analysis; submit the clip again."
             job["cancel"] = threading.Event()
@@ -60,17 +62,20 @@ app = FastAPI(
 
 def persist(job):
     target = JOBS / job["id"] / "job.json"
-    target.write_text(json.dumps({k: v for k, v in job.items() if k != "cancel"}))
+    with persist_lock:
+        temporary = target.with_suffix(".tmp")
+        temporary.write_text(json.dumps({k: v for k, v in job.items() if k != "cancel"}))
+        temporary.replace(target)
 
 
 @app.middleware("http")
 async def boundary(request: Request, call_next):
-    # A public deployment must explicitly enable access and provide a server-side token.
+    # Public deployments may require an access token in addition to durable global job limits.
     # Default operation is a loopback companion, with no externally accessible listener.
-    if os.getenv("PITCHSTATE_PUBLIC", "0") == "1":
+    if os.getenv("PITCHSTATE_PUBLIC", "0") == "1" and request.url.path.startswith("/api/jobs"):
         expected = os.getenv("PITCHSTATE_ACCESS_TOKEN", "")
         supplied = request.headers.get("authorization", "").removeprefix("Bearer ")
-        if not expected or not secrets.compare_digest(supplied, expected):
+        if expected and not secrets.compare_digest(supplied, expected):
             return JSONResponse({"detail": "Authorized access required"}, 401)
     origin = request.headers.get("origin")
     allowed = {
@@ -101,8 +106,10 @@ def health(request: Request):
             "jevConfigured": bool(os.getenv("JEV_API_KEY")),
             "maxClipSeconds": 60,
             "sampleFps": 5,
-            "demoAvailable": (ROOT / ".local/real-analysis.json").exists()
-            and (ROOT / "data/2e57b9_0.mp4").exists(),
+            "demoAvailable": Path(
+                os.getenv("PITCHSTATE_DEMO_ANALYSIS", str(ROOT / ".local/real-analysis.json"))
+            ).exists()
+            and Path(os.getenv("PITCHSTATE_DEMO_VIDEO", str(ROOT / "data/2e57b9_0.mp4"))).exists(),
             "budget": JevJudge(ROOT / ".local").usage(),
         }
     )
@@ -175,18 +182,36 @@ async def create_job(
     video: UploadFile = File(...),
     use_jev: bool = Form(True),
     home_attacks_right: bool = Form(True),
+    request_id: str | None = Form(None),
 ):
     session = request.cookies.get("pitchstate_session")
     if not session:
         raise HTTPException(403, "Initialize the session first")
+    if request_id is not None and re.fullmatch(r"[a-f0-9]{32}", request_id) is None:
+        raise HTTPException(400, "Invalid request identity")
     with lock:
+        cutoff = time.time() - 86400
+        for old_id, old in list(jobs.items()):
+            if old["created"] < cutoff and old["status"] not in ("queued", "running", "uploading"):
+                shutil.rmtree(JOBS / old_id, ignore_errors=True)
+                jobs.pop(old_id, None)
+        daily_limit = int(os.getenv("PITCHSTATE_DAILY_JOB_LIMIT", "12"))
+        if sum(j["created"] >= cutoff for j in jobs.values()) >= daily_limit:
+            raise HTTPException(
+                429, "The daily analysis limit has been reached. Cached examples remain available."
+            )
         if sum(j["status"] in ("uploading", "queued", "running") for j in jobs.values()) >= 2:
             raise HTTPException(429, "The local worker is busy; wait for a job to finish.")
-        identity = secrets.token_hex(16)
+        identity = request_id or secrets.token_hex(16)
+        if identity in jobs:
+            raise HTTPException(409, "This upload request already exists")
         job = {
             "id": identity,
             "owner": session,
             "name": Path(video.filename or "Uploaded clip").stem[:100],
+            "mediaType": video.content_type
+            if video.content_type in ("video/mp4", "video/webm", "video/quicktime")
+            else "video/mp4",
             "created": time.time(),
             "status": "uploading",
             "progress": 0,
@@ -208,6 +233,8 @@ async def create_job(
                 handle.write(chunk)
         if size == 0:
             raise HTTPException(400, "Video is empty")
+        if await request.is_disconnected():
+            raise HTTPException(499, "Upload disconnected before analysis")
         job["status"] = "queued"
         job["stage"] = "queued"
         persist(job)
@@ -246,8 +273,8 @@ def result(identity: str, request: Request):
 
 @app.get("/api/jobs/{identity}/video")
 def video(identity: str, request: Request):
-    owned(identity, request)
-    return FileResponse(JOBS / identity / "video.mp4", media_type="video/mp4")
+    job = owned(identity, request)
+    return FileResponse(JOBS / identity / "video.mp4", media_type=job.get("mediaType", "video/mp4"))
 
 
 @app.delete("/api/jobs/{identity}")
@@ -262,7 +289,7 @@ def cancel(identity: str, request: Request):
 
 @app.get("/api/demo/analysis")
 def demo_analysis():
-    path = ROOT / ".local/real-analysis.json"
+    path = Path(os.getenv("PITCHSTATE_DEMO_ANALYSIS", str(ROOT / ".local/real-analysis.json")))
     if not path.exists():
         raise HTTPException(404, "Run the evaluation clip to prepare the real demo")
     return FileResponse(path, media_type="application/json")
@@ -270,7 +297,14 @@ def demo_analysis():
 
 @app.get("/api/demo/video")
 def demo_video():
-    path = ROOT / "data/2e57b9_0.mp4"
+    path = Path(os.getenv("PITCHSTATE_DEMO_VIDEO", str(ROOT / "data/2e57b9_0.mp4")))
     if not path.exists():
         raise HTTPException(404, "Download the evaluation clip first")
     return FileResponse(path, media_type="video/mp4")
+
+
+# A production build can be served from the same origin as the API.
+if (ROOT / "dist").exists():
+    from fastapi.staticfiles import StaticFiles
+
+    app.mount("/", StaticFiles(directory=ROOT / "dist", html=True), name="frontend")

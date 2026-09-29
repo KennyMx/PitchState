@@ -1,3 +1,9 @@
 dist
 node_modules
 package-lock.json
+.venv
+.local
+data
+models/*.pt
+__pycache__
+.pytest_cache

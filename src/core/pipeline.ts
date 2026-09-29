@@ -84,16 +84,18 @@ export async function analyzeWithPipeline(
 ): Promise<Analysis> {
   if (file.size > 100 * 1024 * 1024) throw new Error('Choose a clip smaller than 100 MB.');
   await getHealth();
+  const requestId = crypto.randomUUID().replaceAll('-', '');
   const form = new FormData();
+  form.append('request_id', requestId);
   form.append('video', file);
   form.append('use_jev', 'true');
   form.append('home_attacks_right', String(homeAttacksRight));
-  const job = await request<{ id: string }>('/api/jobs', { method: 'POST', body: form, signal });
   const cancel = () => {
-    void fetch(`/api/jobs/${job.id}`, { method: 'DELETE' });
+    void fetch(`/api/jobs/${requestId}`, { method: 'DELETE' }).catch(() => {});
   };
   signal.addEventListener('abort', cancel, { once: true });
   try {
+    await request<{ id: string }>('/api/jobs', { method: 'POST', body: form, signal });
     while (!signal.aborted) {
       const status = await request<{
         status: string;
@@ -101,11 +103,11 @@ export async function analyzeWithPipeline(
         stage: string;
         error?: string;
         preview?: Preview;
-      }>(`/api/jobs/${job.id}`, { signal });
+      }>(`/api/jobs/${requestId}`, { signal });
       onProgress(status.progress, status.stage, status.preview);
       if (status.status === 'complete') {
-        const result = await request<Analysis>(`/api/jobs/${job.id}/analysis`, { signal });
-        return { ...result, videoUrl: `/api/jobs/${job.id}/video` };
+        const result = await request<Analysis>(`/api/jobs/${requestId}/analysis`, { signal });
+        return { ...result, videoUrl: `/api/jobs/${requestId}/video` };
       }
       if (status.status === 'failed' || status.status === 'cancelled')
         throw new Error(status.error ?? 'Analysis cancelled');
@@ -124,6 +126,7 @@ export async function analyzeWithPipeline(
     cancel();
     throw new DOMException('Cancelled', 'AbortError');
   } finally {
+    if (signal.aborted) cancel();
     signal.removeEventListener('abort', cancel);
   }
 }
