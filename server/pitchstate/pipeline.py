@@ -12,9 +12,11 @@ from .camera import Camera, transform
 from .perception import SoccerModels, Detection, TeamClassifier, kit_feature, ROOT
 from .tracking import PlayerTracker, BallTracker
 from .state import GameState
+from .refinement import refine
 from .jev import JevJudge, JevUnavailable
 
-PIPELINE_VERSION = "neural-soccer-v2"
+PIPELINE_VERSION = "offline-soccer-v3"
+PERCEPTION_VERSION = "neural-soccer-v2"
 
 
 def file_hash(path):
@@ -56,7 +58,7 @@ def analyze(
     duration = min(count / fps, duration_limit)
     sample_fps = min(5.0, max(1.0, sample_fps))
     digest = file_hash(path)
-    cache_dir = ROOT / ".local/perception" / f"{PIPELINE_VERSION}-{digest[:16]}-{sample_fps:g}"
+    cache_dir = ROOT / ".local/perception" / f"{PERCEPTION_VERSION}-{digest[:16]}-{sample_fps:g}"
     cache_dir.mkdir(parents=True, exist_ok=True)
     trackers = PlayerTracker()
     ball_tracker = BallTracker()
@@ -68,7 +70,6 @@ def analyze(
     judgments = []
     judge_count = 0
     last_judge = -10.0
-    last_phase = None
     max_judgments = int(os.getenv("JEV_MAX_CALLS_PER_JOB", "12"))
     sample_count = int(np.ceil(duration * sample_fps))
     try:
@@ -133,6 +134,9 @@ def analyze(
                         "team": team,
                         "teamConfidence": team_confidence,
                         "role": track.kind,
+                        "_appearance": track.feature.tolist()
+                        if track.feature is not None
+                        else None,
                         "confidence": round(track.confidence, 4),
                         "x": round(float(point[0]), 3),
                         "y": round(float(point[1]), 3),
@@ -172,38 +176,12 @@ def analyze(
                 "calibration": calibration,
                 "coordinateSpace": "pitch" if matrix is not None else "image",
             }
-            state.update(frame)
             frames.append(frame)
-            if (
-                judge
-                and judge_count < max_judgments
-                and (
-                    timestamp - last_judge >= 2
-                    or (frame["state"]["phase"] != last_phase and timestamp - last_judge >= 1)
-                )
-            ):
-                # A decision is still useful with partial evidence: insufficient_evidence is an explicit output.
-                if len(players) >= 4:
-                    if cancelled and cancelled():
-                        raise InterruptedError("Analysis cancelled")
-                    try:
-                        judgment = judge.judge(state.for_judge(frame))
-                        judgment["time"] = timestamp
-                        judgments.append(judgment)
-                    except JevUnavailable as error:
-                        judgments.append(
-                            {"time": timestamp, "source": "unavailable", "reason": str(error)}
-                        )
-                    judge_count += 1
-                    last_judge = timestamp
-                    last_phase = frame["state"]["phase"]
-            if on_frame:
-                on_frame({"frame": frame, "judgment": judgments[-1] if judgments else None})
             if progress:
                 progress(
                     {
-                        "stage": "perception" if index < sample_count - 1 else "finalizing",
-                        "progress": round((index + 1) / sample_count * 100),
+                        "stage": "Detecting players, ball and pitch",
+                        "progress": round((index + 1) / sample_count * 65),
                         "time": timestamp,
                         "players": len(players),
                         "ball": bool(ball),
@@ -215,6 +193,32 @@ def analyze(
         capture.release()
     if not frames:
         raise ValueError("Video contains no decodable frames")
+    if progress:
+        progress({"stage": "Refining identities and trajectories across the clip", "progress": 67})
+    frames, refinement = refine(frames)
+    for index, frame in enumerate(frames):
+        if cancelled and cancelled():
+            raise InterruptedError("Analysis cancelled")
+        timestamp = frame["time"]
+        state.update(frame)
+        # Spread judgments through the entire clip instead of exhausting the budget at its start.
+        interval = max(1.0, duration / max(1, max_judgments - 1))
+        if judge and judge_count < max_judgments and timestamp - last_judge >= interval:
+            try:
+                judgment = judge.judge(state.for_judge(frame))
+                judgment["time"] = timestamp
+                judgments.append(judgment)
+            except JevUnavailable as error:
+                judgments.append({"time": timestamp, "source": "unavailable", "reason": str(error)})
+            judge_count += 1
+            last_judge = timestamp
+        if progress:
+            progress(
+                {
+                    "stage": "Computing tactical state and next-action probabilities",
+                    "progress": 70 + round(29 * (index + 1) / len(frames)),
+                }
+            )
     total = len(frames)
     quality = {
         "frames": total,
@@ -222,6 +226,10 @@ def analyze(
         "uniqueTracks": len({p["id"] for f in frames for p in f["players"]}),
         "ballObservedFraction": round(
             sum(bool(f["ball"] and f["ball"]["status"] == "observed") for f in frames) / total, 3
+        ),
+        "ballReconstructedFraction": round(
+            sum(bool(f["ball"] and f["ball"]["status"] == "reconstructed") for f in frames) / total,
+            3,
         ),
         "ballPredictedFraction": round(
             sum(bool(f["ball"] and f["ball"]["status"] == "predicted") for f in frames) / total, 3
@@ -235,7 +243,7 @@ def analyze(
         "shots": camera.shot + 1,
     }
     result = {
-        "schemaVersion": 2,
+        "schemaVersion": 3,
         "pipelineVersion": PIPELINE_VERSION,
         "source": "pipeline",
         "name": path.stem,
@@ -247,6 +255,8 @@ def analyze(
         "judgments": judgments,
         "quality": quality,
         "metadata": {
+            "refinement": refinement,
+            "forecastContext": "Retrospective reconstructed observations; no future action labels supplied. Not a leakage-free forecasting benchmark.",
             "perception": "Soccer-trained YOLOv8 player, ball, and pitch models",
             "tracking": "Two-stage Hungarian motion/appearance association; ball Kalman filter",
             "calibration": "Neural 32-landmark RANSAC homography with optical-flow propagation",
