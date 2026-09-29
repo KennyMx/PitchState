@@ -31,6 +31,7 @@ class GameState:
         self.last_shot = None
         self.events = []
         self.signal_since = {}
+        self.emitted_signals = set()
         self.last_event = {}
 
     def reset_shot(self):
@@ -44,6 +45,7 @@ class GameState:
         self.prior_owner = None
         self.last_change = -10.0
         self.signal_since.clear()
+        self.emitted_signals.clear()
 
     def update(self, frame):
         t = frame["time"]
@@ -243,19 +245,27 @@ class GameState:
         for key in list(self.signal_since):
             if key not in signals:
                 self.signal_since.pop(key)
+                self.emitted_signals.discard(key)
         for key in signals:
             self.signal_since.setdefault(key, t)
-            if t - self.signal_since[key] >= 0.6 and t - self.last_event.get(key, -100) > 4:
+            if (
+                key not in self.emitted_signals
+                and t - self.signal_since[key] >= 0.6
+                and t - self.last_event.get(key, -100) > 4
+            ):
                 self.events.append(
                     {
                         "time": round(self.signal_since[key], 3),
                         "kind": key,
-                        "detail": self.explain(key, evidence),
+                        "detail": "Attacking-team context and field location support this phase; carrier control remains uncertain."
+                        if key == phase and state["phaseSource"] == "context_hypothesis"
+                        else self.explain(key, evidence),
                         "confidence": state["possessionConfidence"],
                         "source": "state_rules",
                     }
                 )
                 self.last_event[key] = t
+                self.emitted_signals.add(key)
         self.history.append(frame)
         return state
 

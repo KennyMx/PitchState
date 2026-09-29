@@ -36,3 +36,11 @@ def test_invalid_calibration_suppresses_tactical_geometry():
     assert not state.events
     assert state.history[-1]["state"]["phase"] == "insufficient_evidence"
     assert state.history[-1]["players"][0]["speedMps"] is None
+
+
+def test_continuous_phase_emits_one_onset_not_repeated_old_timestamps():
+    state = GameState()
+    for i in range(60):
+        state.update(make_frame(i * 0.2))
+    phases = [e for e in state.events if e["kind"] == "build_up"]
+    assert len(phases) == 1

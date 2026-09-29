@@ -443,7 +443,10 @@ export default function App() {
                       onSeeked={(e) =>
                         setTime(Math.min(e.currentTarget.currentTime, analysis.duration))
                       }
-                      onEnded={() => setPlaying(false)}
+                      onEnded={() => {
+                        setPlaying(false);
+                        setTime(analysis.duration);
+                      }}
                       onError={() => setError('The browser cannot play this video. Try H.264 MP4.')}
                     />
                     {pipeline ? (
@@ -731,7 +734,7 @@ export default function App() {
             </div>
             <p className="state-detail">
               {pipeline
-                ? 'Causal state from tracked players, ball evidence, and automatic pitch calibration. See Jev’s separate judgment above.'
+                ? 'State from refined tracks, ball evidence, and automatic pitch calibration. See Jev’s separate judgment above.'
                 : local
                   ? matrix
                     ? 'Assisted analysis uses your pitch corners and interpolated ball marks. Tracking and tactical signals still need visual review.'
