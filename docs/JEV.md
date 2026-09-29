@@ -4,7 +4,7 @@ The implementation calls the [official TypeSafe API](https://docs.typesafe.ai/ap
 
 ## Inputs and outputs
 
-Each request contains a compact causal state/history and three typed questions:
+Each request contains a compact reconstructed state/history and three typed questions:
 
 - Choice: the next on-ball action in three seconds — pass, carry, shot, cross, turnover, stoppage or insufficient evidence.
 - Choice: build-up, counterattack, pressing, settled attack, defensive transition or insufficient evidence.
@@ -20,6 +20,8 @@ Responses are validated for supported choices, finite [0,1] values and normalize
 
 Defaults are 60 lifetime requests, 250,000 accounted input tokens and 12 calls per job. SQLite reserves conservative tokens before transmission, then records actual returned usage. Failed/ambiguous requests keep their reservation and are not automatically retried. The limits survive a process restart **only if `.local/jev.sqlite3` persists**. Do not delete this file to clear an analysis cache.
 
-The state payload is bounded to 24 KB. Calls normally occur every two seconds or after a phase transition with a minimum one-second spacing. Identical canonical requests use a content-addressed cache. When the budget is exhausted, the neural/state pipeline continues and the UI reports unavailable Jev judgments.
+The maintained `docs/TACTICAL_REFERENCE.md` runtime section is included in requests with its content hash. Context features distinguish confirmed carrier control from nearby-player hypotheses and bounded recent-team ball-flight context. Unknown carrier alone no longer triggers automatic abstention.
+
+The state payload is bounded to 24 KB. Judgments are distributed across the clip with a minimum one-second spacing and the per-job budget. Low caps on long clips can leave stale intervals, which remain labeled in replay. Identical canonical requests use a content-addressed cache. When the budget is exhausted, the neural/state pipeline continues and the UI reports unavailable Jev judgments.
 
 The estimate uses the published $0.042 per million input tokens for Jev 1.13.0, with free output tokens, checked during implementation against [model documentation](https://docs.typesafe.ai/models). It is an estimate, not an account balance or provider invoice. Public workloads are additionally bounded by the daily job limit. Change caps deliberately rather than treating available credit as an instruction to consume it.

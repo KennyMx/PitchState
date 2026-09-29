@@ -39,3 +39,15 @@ Follow the README to acquire models and research footage. Run each clip with `sc
 ## What remains unproven
 
 No labeled ground-truth benchmark yet measures player/ball precision-recall, HOTA/IDF1, pitch reprojection error in meters, possession accuracy, event precision-recall or forecast Brier/log loss. No claim of broadcast-wide robustness or calibrated action probabilities is supported. Long occlusions, camera cuts, close-ups, goalkeeper kit assignment, unseen formations, airborne-ball geometry and rare actions need dedicated evaluation. The container recipe and multi-browser decoder compatibility still require testing in their deployment environments.
+
+## Offline replay revision
+
+The revised pipeline finishes perception, full-clip refinement, state and Jev computation before returning a replay. Regression tests cover bounded player/ball reconstruction, cut boundaries, conservative tracklet joining, continuous-event deduplication, mirrored crossing geometry, recent-team context expiry and image-space interpolation at 60 Hz from 5 Hz samples.
+
+The first 12-second real clip previously abstained in 6/8 next-action judgments; the revised run abstained in 0/6. This is not an accuracy comparison: schedules differ, inputs changed and outcomes remain unlabeled. See `reports/offline-evaluation.json` for actual distributions/coverage. Retrospective refinement filled 17 player samples and eight ball samples on this clip; none are relabeled as direct detections. No tracklet links passed the conservative gate on this particular clip.
+
+The second real clip was processed for its full 30 seconds (150 samples). It produced eight valid Jev judgments, all with a non-abstention leading action, and one unavailable response after schema/value validation failed. The first eight seconds reused perception cache, so its 70.36-second runtime is not a cold benchmark. Do not interpret plentiful pass predictions on these build-up sequences as proof of rare-action recognition.
+
+An opt-in four-call synthetic sensitivity check (`scripts/evaluate_action_context.py`) produced cross probabilities of 19% on a wide approach, 93% at the byline with box targets, and 23% with an empty box. A missing-ball/unknown-team case abstained at 100%. These test model sensitivity to our context, not forecast accuracy or calibrated percentages. Exact results and the tactical reference hash are committed in `reports/action-context-sensitivity.json`.
+
+A real three-second segment re-encoded at 60 FPS was uploaded through the browser. Processing completed before replay opened, the result retained 60 FPS source metadata and 5 Hz analysis, and Play drove the native video-frame clock with interpolated overlays. This tests cadence compatibility; duplicated source frames add no information, and no hardware-independent sustained-rendering performance guarantee is implied.

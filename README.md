@@ -4,7 +4,7 @@
 
 The default upload path is a working neural pipeline:
 
-**Footage → soccer-specific perception → camera-aware tracking → causal game state → tactical evidence → Jev → next-three-second action distribution.**
+**Footage → soccer-specific perception → camera-aware tracking → evolving game state → tactical evidence → Jev → next-three-second action distribution.**
 
 React/TypeScript renders the replay. A Python/FastAPI companion runs three local soccer models and sends compact state features to Jev. Raw video is not sent to Jev. A cached real analysis loads immediately when configured; a clearly labeled simulation is the fallback. The earlier kit-color browser baseline remains available for comparison.
 
@@ -26,7 +26,7 @@ In another terminal:
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Upload an MP4/WebM/MOV (up to 60 seconds, 100 MB, 4K). Team A is initially the darker jersey cluster; choose its attack direction before processing. The first provisional reconstruction appears while analysis continues. Play, scrub, select tracks, inspect movement, and click Jev timestamps or tactical moments. Export the complete replay JSON for inspection.
+Open http://127.0.0.1:5173. Upload an MP4/WebM/MOV (up to 60 seconds, 100 MB, 4K). Team A is initially the darker jersey cluster; choose its attack direction before processing. The entire clip is processed before replay opens. Offline refinement stabilizes identities and fills short, explicitly labeled gaps. Video-frame callbacks synchronize interpolated overlays at the source cadence, including 60 FPS sources. Play, scrub, select tracks, inspect movement, and click Jev timestamps or tactical moments. Export the complete replay JSON for inspection.
 
 Without a Jev key, perception and tactical state still work; the interface reports unavailable judgments instead of fabricating probabilities.
 
@@ -55,8 +55,8 @@ Coverage measures availability, **not accuracy**. These are development runs on 
 - Camera motion compensation, two-stage track association, ball filtering, bounded prediction, and shot resets.
 - Learned pitch calibration with RANSAC and rejection checks; explicit camera-space fallback.
 - Possession hysteresis, movement estimates, visible team shape, pressure, passing options, local overloads, dangerous-run candidates and transition evidence.
-- Causal Jev questions with complete next-action distributions, timestamps, abstention and stale-judgment indicators.
-- Progressive jobs, cancellation, private session ownership, persistent caches, durable API budget, daily upload cap and replay export.
+- Context-grounded Jev questions with complete next-action distributions, timestamps, abstention and stale-judgment indicators.
+- Offline multi-stage jobs, cancellation, private session ownership, persistent caches, durable API budget, daily upload cap and replay export.
 
 This is an operational research project, not a validated professional tracking system. Ball occlusion, airborne-ball projection, crowded scenes, similar kits, unusual camera angles and partial-field views remain hard. IDs are track IDs, not player identities. Speed/distance and tactical labels inherit perception errors. Jev probabilities have not been calibrated against labeled match outcomes.
 
@@ -74,3 +74,5 @@ npm run test:server
 ```
 
 A static-only deployment can run the browser baseline, but **neural uploads require the Python service**. The included single-worker container setup bounds cost and serves the frontend/API together. No public deployment is claimed. Model/runtime license obligations and footage rights must be resolved for the intended deployment; see `models/manifest.json`.
+
+The maintained [tactical reference](docs/TACTICAL_REFERENCE.md) is loaded into Jev requests, with a version/hash for reproducibility. See [offline evaluation](reports/offline-evaluation.json) and [crossing sensitivity](reports/action-context-sensitivity.json). Reconstruction uses future observations; the displayed forecasts are retrospective judgments, not a leakage-free prospective benchmark.

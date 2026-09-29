@@ -1,0 +1,97 @@
+{
+  "limitations": [
+    "Development footage, not labeled accuracy evaluation",
+    "Judgment schedules differ between versions",
+    "First offline run reuses cached neural observations; full second run reuses first eight seconds",
+    "Offline reconstruction uses future observations; these are retrospective judgments",
+    "One second-clip response failed validation and was not retried"
+  ],
+  "runs": [
+    {
+      "run": "previous_online",
+      "duration": 12.0,
+      "videoFps": 25.0,
+      "analysisHz": 5.0,
+      "quality": {
+        "frames": 60,
+        "playerObservations": 1378,
+        "uniqueTracks": 29,
+        "ballObservedFraction": 0.867,
+        "ballPredictedFraction": 0.133,
+        "calibratedFraction": 1.0,
+        "possessionKnownFraction": 0.4,
+        "processingSeconds": 108.1,
+        "jevResponses": 8,
+        "shots": 1
+      },
+      "nextActionAbstentions": 6,
+      "validJudgments": 8,
+      "unavailableJudgments": 0,
+      "meanInsufficientProbability": 0.521,
+      "contextAvailableFraction": 0.0,
+      "refinement": null
+    },
+    {
+      "run": "offline_first",
+      "duration": 12.0,
+      "videoFps": 25.0,
+      "analysisHz": 5.0,
+      "quality": {
+        "frames": 60,
+        "playerObservations": 1395,
+        "uniqueTracks": 29,
+        "ballObservedFraction": 0.867,
+        "ballReconstructedFraction": 0.133,
+        "ballPredictedFraction": 0.0,
+        "calibratedFraction": 1.0,
+        "possessionKnownFraction": 0.467,
+        "contextAvailableFraction": 0.85,
+        "forecastAbstentions": 0,
+        "processingSeconds": 12.51,
+        "jevResponses": 6,
+        "shots": 1
+      },
+      "nextActionAbstentions": 0,
+      "validJudgments": 6,
+      "unavailableJudgments": 0,
+      "meanInsufficientProbability": 0.055,
+      "contextAvailableFraction": 0.85,
+      "refinement": {
+        "linkedTracklets": 0,
+        "reconstructedPlayerSamples": 17,
+        "reconstructedBallSamples": 8,
+        "usesFutureObservations": true
+      }
+    },
+    {
+      "run": "offline_full_second",
+      "duration": 30.0,
+      "videoFps": 25.0,
+      "analysisHz": 5.0,
+      "quality": {
+        "frames": 150,
+        "playerObservations": 3480,
+        "uniqueTracks": 31,
+        "ballObservedFraction": 0.967,
+        "ballReconstructedFraction": 0.033,
+        "ballPredictedFraction": 0.0,
+        "calibratedFraction": 1.0,
+        "possessionKnownFraction": 0.76,
+        "processingSeconds": 70.36,
+        "jevResponses": 8,
+        "shots": 1
+      },
+      "nextActionAbstentions": 0,
+      "validJudgments": 8,
+      "unavailableJudgments": 1,
+      "meanInsufficientProbability": 0.015,
+      "contextAvailableFraction": 0.993,
+      "refinement": {
+        "linkedTracklets": 0,
+        "reconstructedPlayerSamples": 12,
+        "reconstructedBallSamples": 5,
+        "usesFutureObservations": true
+      }
+    }
+  ]
+}
