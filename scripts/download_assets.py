@@ -21,7 +21,8 @@ def main():
         items.extend((ROOT / "models", item) for item in manifest["models"])
     if args.footage:
         items.extend((ROOT / "data", item) for item in manifest["evaluationClips"])
-    receipts = {}
+    output = ROOT / ".local/asset-receipts.json"
+    receipts = json.loads(output.read_text()) if output.exists() else {}
     for directory, item in items:
         directory.mkdir(exist_ok=True)
         target = directory / item["file"]
@@ -37,7 +38,11 @@ def main():
             if hasattr(hashlib, "file_digest")
             else hashlib.sha256(target.read_bytes()).hexdigest(),
         }
-    output = ROOT / ".local/asset-receipts.json"
+        expected = item.get("sha256")
+        if expected and receipts[item["file"]]["sha256"] != expected:
+            raise RuntimeError(
+                f"Asset checksum mismatch: {item['file']}; do not load this model"
+            )
     output.parent.mkdir(exist_ok=True)
     output.write_text(json.dumps(receipts, indent=2))
     print(json.dumps(receipts, indent=2))

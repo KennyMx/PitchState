@@ -5,19 +5,22 @@
       "name": "players",
       "file": "football-player-detection.pt",
       "driveId": "17PXFNlx-jI7VjVo_vQnB1sONjRyvoB-q",
-      "purpose": "Soccer players, goalkeepers, referees and ball"
+      "purpose": "Soccer players, goalkeepers, referees and ball",
+      "sha256": "75b09c377fbf9d0791d23f6cfb689f5aed6eaa43a6818bd1fb884cf7507fffaf"
     },
     {
       "name": "ball",
       "file": "football-ball-detection.pt",
       "driveId": "1isw4wx-MK9h9LMr36VvIWlJD6ppUvw7V",
-      "purpose": "Small ball detection"
+      "purpose": "Small ball detection",
+      "sha256": "678fbad05134f19c5094cb8d273812ec9c6691228180d46832551ecf99ed2912"
     },
     {
       "name": "pitch",
       "file": "football-pitch-detection.pt",
       "driveId": "1Ma5Kt86tgpdjCTKfum79YMgNnSjcoOyf",
-      "purpose": "32 field landmarks"
+      "purpose": "32 field landmarks",
+      "sha256": "28f68f7c4056d6d9b137efd2e7ab5f3c494039380c63831649126ced25628b36"
     }
   ],
   "evaluationClips": [
