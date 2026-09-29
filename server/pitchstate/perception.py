@@ -31,11 +31,19 @@ class Detection:
 
 
 class SoccerModels:
-    def __init__(self, directory: Path = ROOT / "models", device="cpu"):
+    def __init__(self, directory: Path = ROOT / "models", device="auto"):
         from ultralytics import YOLO
         import torch
 
         torch.set_num_threads(min(4, os.cpu_count() or 1))
+        if device == "auto":
+            device = (
+                "cuda"
+                if torch.cuda.is_available()
+                else "mps"
+                if torch.backends.mps.is_available()
+                else "cpu"
+            )
         self.device = device
         self.players = YOLO(str(directory / "football-player-detection.pt"))
         self.ball = YOLO(str(directory / "football-ball-detection.pt"))

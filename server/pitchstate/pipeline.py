@@ -88,7 +88,7 @@ def analyze(
                 keypoints = np.array(raw["keypoints"])
             else:
                 if models is None:
-                    models = SoccerModels(device=os.getenv("PITCHSTATE_DEVICE", "cpu"))
+                    models = SoccerModels(device=os.getenv("PITCHSTATE_DEVICE", "auto"))
                 detections, balls, keypoints = models.detect(image, ball_tracker.point, index)
                 raw = {
                     "players": [d.__dict__ for d in detections],

@@ -1,0 +1,31 @@
+{
+  "clip": "2e57b9_0.mp4",
+  "seconds": 12,
+  "source": "Roboflow sports / DFL Bundesliga Data Shootout",
+  "v1": {
+    "frames": 60,
+    "playerObservations": 1378,
+    "uniqueTracks": 29,
+    "ballObservedFraction": 0.65,
+    "ballPredictedFraction": 0.233,
+    "calibratedFraction": 1.0,
+    "possessionKnownFraction": 0.467,
+    "processingSeconds": 88.66,
+    "jevResponses": 9,
+    "shots": 1
+  },
+  "v2": {
+    "frames": 60,
+    "playerObservations": 1378,
+    "uniqueTracks": 29,
+    "ballObservedFraction": 0.867,
+    "ballPredictedFraction": 0.133,
+    "calibratedFraction": 1.0,
+    "possessionKnownFraction": 0.4,
+    "processingSeconds": 108.1,
+    "jevResponses": 8,
+    "shots": 1
+  },
+  "interpretation": "Coverage measures availability, not accuracy. This is a developer evaluation clip, not a proven held-out benchmark.",
+  "observedImprovements": "High-resolution ball reacquisition recovered multiple previously missed airborne/fast-moving ball observations."
+}

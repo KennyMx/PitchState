@@ -133,7 +133,7 @@ def run_job(job):
         job.update(status="running", stage="loading models")
         persist(job)
         if models is None:
-            models = SoccerModels(device=os.getenv("PITCHSTATE_DEVICE", "cpu"))
+            models = SoccerModels(device=os.getenv("PITCHSTATE_DEVICE", "auto"))
 
         def progress(info):
             job.update(progress=info["progress"], stage=info["stage"])

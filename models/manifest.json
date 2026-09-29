@@ -1,12 +1,38 @@
 {
   "source": "https://github.com/roboflow/sports/blob/main/examples/soccer/setup.sh",
   "models": [
-    {"name": "players", "file": "football-player-detection.pt", "driveId": "17PXFNlx-jI7VjVo_vQnB1sONjRyvoB-q", "purpose": "Soccer players, goalkeepers, referees and ball"},
-    {"name": "ball", "file": "football-ball-detection.pt", "driveId": "1isw4wx-MK9h9LMr36VvIWlJD6ppUvw7V", "purpose": "Small ball detection"},
-    {"name": "pitch", "file": "football-pitch-detection.pt", "driveId": "1Ma5Kt86tgpdjCTKfum79YMgNnSjcoOyf", "purpose": "32 field landmarks"}
+    {
+      "name": "players",
+      "file": "football-player-detection.pt",
+      "driveId": "17PXFNlx-jI7VjVo_vQnB1sONjRyvoB-q",
+      "purpose": "Soccer players, goalkeepers, referees and ball"
+    },
+    {
+      "name": "ball",
+      "file": "football-ball-detection.pt",
+      "driveId": "1isw4wx-MK9h9LMr36VvIWlJD6ppUvw7V",
+      "purpose": "Small ball detection"
+    },
+    {
+      "name": "pitch",
+      "file": "football-pitch-detection.pt",
+      "driveId": "1Ma5Kt86tgpdjCTKfum79YMgNnSjcoOyf",
+      "purpose": "32 field landmarks"
+    }
   ],
   "evaluationClips": [
-    {"file": "2e57b9_0.mp4", "driveId": "19PGw55V8aA6GZu5-Aac5_9mCy3fNxmEf", "source": "DFL Bundesliga Data Shootout via Roboflow tutorial", "redistribution": "Not bundled; download locally for research/evaluation"}
+    {
+      "file": "2e57b9_0.mp4",
+      "driveId": "19PGw55V8aA6GZu5-Aac5_9mCy3fNxmEf",
+      "source": "DFL Bundesliga Data Shootout via Roboflow tutorial",
+      "redistribution": "Not bundled; download locally for research/evaluation"
+    },
+    {
+      "file": "0bfacc_0.mp4",
+      "driveId": "12TqauVZ9tLAv8kWxTTBFWtgt2hNQ4_ZF",
+      "source": "DFL Bundesliga Data Shootout via Roboflow tutorial",
+      "redistribution": "Not bundled; local evaluation only"
+    }
   ],
   "licenseNotes": "Ultralytics runtime/models are subject to AGPL-3.0 or an applicable commercial license. Roboflow sports code is MIT. Dataset/footage rights are separate; do not automatically publish research clips."
 }
