@@ -2,6 +2,7 @@
 
 from collections import deque
 import numpy as np
+from .tactics import contextual_features, knowledge
 
 
 def metric(point):
@@ -14,6 +15,7 @@ def dist(a, b):
 
 class GameState:
     def __init__(self, home_attacks_right=True):
+        self.knowledge = knowledge()
         self.direction = 1 if home_attacks_right else -1
         self.history = deque(maxlen=40)
         self.previous = {}
@@ -78,7 +80,7 @@ class GameState:
         ball = frame.get("ball")
         observed = (
             ball is not None
-            and ball.get("status") == "observed"
+            and ball.get("status") in ("observed", "reconstructed")
             and ball.get("confidence", 0) >= 0.12
             and valid
         )
@@ -219,6 +221,7 @@ class GameState:
             else 0,
         }
         frame["state"] = state
+        state["context"] = contextual_features(frame, self.history, self.direction == 1)
         signals = {phase} if phase != "insufficient_evidence" else set()
         if overload:
             signals.add("overload")
@@ -264,6 +267,8 @@ class GameState:
         recent = list(self.history)[-15:]
         return {
             "sport": "association football",
+            "tacticalReference": self.knowledge,
+            "reconstructionUsesFutureObservations": True,
             "forecastHorizonSeconds": 3,
             "timeSeconds": t,
             "coordinateSystem": "105x68 meter pitch; automatically estimated geometry",
@@ -299,6 +304,7 @@ class GameState:
                     if f["ball"] and f["calibration"]["valid"]
                     else None,
                     "phase": f["state"]["phase"],
+                    "context": f["state"].get("context"),
                 }
                 for f in recent[::2]
             ],

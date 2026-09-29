@@ -13,7 +13,7 @@ import httpx
 
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-1.13.0"
-PROMPT_VERSION = "soccer-v1"
+PROMPT_VERSION = "soccer-context-v2"
 ACTIONS = {
     "pass": "A pass to a teammate, excluding a cross into the penalty area.",
     "carry": "The carrier keeps the ball and advances by dribbling.",
@@ -29,12 +29,12 @@ PHASES = {
     "pressing": "Multiple defenders actively close the ball carrier or nearby passing options.",
     "settled_attack": "Sustained attacking possession against an established defense.",
     "defensive_transition": "A side just lost possession and is recovering its defensive shape.",
-    "insufficient_evidence": "The observed state does not support a specific tactical phase.",
+    "insufficient_evidence": "No defensible phase can be inferred even from recent team and location context.",
 }
 QUESTIONS = {
     "next_action": {
         "type": "choice",
-        "instructions": "Based only on the causal soccer state and recent history, which next observable on-ball action is most likely in the next 3 seconds? This is a forecast, not advice. The options are mutually exclusive; a cross is not counted as a pass. Do not invent off-camera players or treat unknown coordinates as facts. Choose insufficient_evidence when core observations are missing.",
+        "instructions": "Use tacticalReference guidance, current.context and recent history. Predict the NEXT initiated action, not the pass already in flight. With useful attacking-team and location context, uncertainty should broaden realistic action probabilities rather than force abstention. Based on the reconstructed soccer state, which next observable on-ball action is most likely in the next 3 seconds? This is a forecast, not advice. The options are mutually exclusive; a cross is not counted as a pass. Do not invent off-camera players or treat unknown coordinates as facts. Choose insufficient_evidence only when no defensible contextual judgment is possible. Unknown carrier alone is not sufficient to abstain.",
         "criteria": ACTIONS,
     },
     "phase": {
