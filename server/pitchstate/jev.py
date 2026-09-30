@@ -67,7 +67,12 @@ def validate_choice(answer: dict, options: dict) -> dict:
         for v in numbers
     ):
         raise ValueError("Jev returned invalid probabilities")
-    if abs(sum(numbers) - 1) > 0.002 or answer.get("choice") not in options:
+    total = sum(numbers)
+    # A list of two-decimal probabilities can legitimately sum to 0.99 or 1.01.
+    # Only tolerate the quantisation bound, preserve raw values, and never clip invalid values.
+    rounded = all(abs(v * 100 - round(v * 100)) < 1e-8 for v in numbers)
+    tolerance = min(0.03, len(numbers) * 0.005 + 1e-8) if rounded else 0.002
+    if total <= 0 or abs(total - 1) > tolerance or answer.get("choice") not in options:
         raise ValueError("Jev returned an invalid distribution")
     confidence = answer.get("confidence")
     if (
@@ -76,7 +81,17 @@ def validate_choice(answer: dict, options: dict) -> dict:
         or not 0 <= confidence <= 1
     ):
         raise ValueError("Jev returned invalid confidence")
-    return {"choice": answer["choice"], "probabilities": probabilities, "confidence": confidence}
+    result = {
+        "choice": answer["choice"],
+        "probabilities": {k: v / total for k, v in probabilities.items()}
+        if abs(total - 1) > 1e-8
+        else probabilities,
+        "confidence": confidence,
+    }
+    if abs(total - 1) > 1e-8:
+        result["rawProbabilities"] = probabilities
+        result["normalizationSum"] = total
+    return result
 
 
 class JevJudge:
@@ -235,6 +250,11 @@ class JevJudge:
             if isinstance(exc, JevUnavailable):
                 raise
             # Never relay response bodies, headers or an exception that may contain credentials.
+            diagnostic = (
+                str(exc)
+                if isinstance(exc, ValueError) and str(exc).startswith("Jev returned")
+                else type(exc).__name__
+            )
             raise JevUnavailable(
-                f"Jev request failed ({type(exc).__name__}); no automatic retry"
+                f"Jev response unavailable ({diagnostic}); no automatic retry"
             ) from None

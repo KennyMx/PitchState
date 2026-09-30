@@ -91,3 +91,30 @@ def test_dynamic_decisions_aggregate_categories_without_inventing_probabilities(
     assert result["nextDecision"]["choice"] == "pass_1_2"
     assert result["nextAction"]["probabilities"]["pass"] == 0.6
     assert result["candidates"] == options
+
+
+def test_rounded_distributions_are_normalized_with_raw_values_retained():
+    from server.pitchstate.jev import validate_choice
+
+    result = validate_choice(
+        {
+            "type": "choice",
+            "choice": "a",
+            "probabilities": {"a": 0.51, "b": 0.25, "c": 0.25},
+            "confidence": 0.5,
+        },
+        {"a": "", "b": "", "c": ""},
+    )
+    assert sum(result["probabilities"].values()) == pytest.approx(1)
+    assert result["rawProbabilities"]["a"] == 0.51
+    assert result["normalizationSum"] == 1.01
+    with pytest.raises(ValueError):
+        validate_choice(
+            {
+                "type": "choice",
+                "choice": "a",
+                "probabilities": {"a": 0.8, "b": 0.3, "c": 0.3},
+                "confidence": 0.5,
+            },
+            {"a": "", "b": "", "c": ""},
+        )

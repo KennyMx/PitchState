@@ -70,6 +70,8 @@ def analyze(
     judge = JevJudge(ROOT / ".local") if use_jev else None
     frames = []
     judgments = []
+    play_events = []
+    last_control_epoch = None
     judge_count = 0
     max_judgments = int(os.getenv("JEV_MAX_CALLS_PER_JOB", "300"))
     sample_count = int(np.ceil(duration * sample_fps))
@@ -212,6 +214,21 @@ def analyze(
             frame, list(state.history)[:-1], home_attacks_right
         )
         frame["actionCandidates"] = action_candidates(frame)
+        if ball_control["epoch"] != last_control_epoch and ball_control["phase"] in (
+            "released",
+            "reception",
+            "contested",
+        ):
+            play_events.append(
+                {
+                    "time": timestamp,
+                    "kind": ball_control["phase"],
+                    "detail": ball_control["label"],
+                    "confidence": ball_control["confidence"],
+                    "source": "ball_control",
+                }
+            )
+        last_control_epoch = ball_control["epoch"]
         # One independently cached judgment per analysis sample, normally every 200 ms.
         if judge and judge_count < max_judgments:
             try:
@@ -268,7 +285,7 @@ def analyze(
         "sampleFps": sample_fps,
         "video": {"width": width, "height": height, "fps": fps, "sha256": digest},
         "frames": frames,
-        "events": state.events,
+        "events": sorted(state.events + play_events, key=lambda event: event["time"]),
         "judgments": judgments,
         "quality": quality,
         "metadata": {
