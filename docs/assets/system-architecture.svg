@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1560" height="1290" viewBox="0 0 1560 1290" role="img" aria-labelledby="title desc">
+<title id="title">PitchState architecture, from clip upload to analyzed replay</title>
+<desc id="desc">Nine ordered stages: bounded upload, soccer perception, camera geometry and tracking, full-clip refinement, game state, tactical options, Jev judgment, replay serialization, and synchronized browser playback. A tactical reference and SQLite cache and budget support the pipeline.</desc>
+<defs><linearGradient id="bg" x2="1" y2="1"><stop stop-color="#0b1714"/><stop offset="1" stop-color="#172720"/></linearGradient><marker id="tip" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 10 5 0 10Z" fill="#a4dfb6"/></marker></defs>
+<style>
+text{font-family:Inter,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.kicker{font-size:18px;letter-spacing:3px;font-weight:700;fill:#9fc9a6}
+.head{font-size:48px;font-weight:750;fill:#f3f9ee}
+.sub{font-size:21px;fill:#b6cbb9}
+.stage{font-size:17px;letter-spacing:1.4px;font-weight:750;fill:#b9e798}
+.title{font-size:27px;font-weight:750;fill:#f4f8f0}
+.body{font-size:20px;fill:#bbcdc0}
+.note{font-size:18px;fill:#b9d3c1}
+.edge{fill:none;stroke:#a4dfb6;stroke-width:4;marker-end:url(#tip)}
+</style>
+<rect width="1560" height="1290" rx="32" fill="url(#bg)"/>
+<rect x="34" y="34" width="1492" height="1222" rx="27" fill="none" stroke="#37574a" stroke-width="2"/>
+<text class="kicker" x="78" y="95">PITCHSTATE  /  SYSTEM ARCHITECTURE</text>
+<text class="head" x="78" y="157">How a clip becomes an analyzed replay</text>
+<text class="sub" x="78" y="199">A complete offline pass builds the timeline before the viewer presses play.</text>
+<rect x="1180" y="82" width="272" height="51" rx="25" fill="#223f2f" stroke="#74aa83"/>
+<circle cx="1211" cy="108" r="6" fill="#b6ee95"/><text class="stage" x="1231" y="115">OFFLINE FIRST</text>
+
+<rect x="78" y="262" width="430" height="240" rx="23" fill="#1c3028" stroke="#58826b" stroke-width="2"/>
+<path d="M98 266 H488" stroke="#b6ee95" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="109" y="320">01 / INGEST</text>
+<text class="title" x="109" y="365">Clip + bounded job</text>
+<text class="body" x="109" y="406">MP4 / WebM / MOV · private session</text>
+<text class="body" x="109" y="437">Original video and FPS are retained.</text>
+<rect x="565" y="262" width="430" height="240" rx="23" fill="#1c303b" stroke="#5b84a1" stroke-width="2"/>
+<path d="M585 266 H975" stroke="#9dd6f1" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="596" y="320">02 / PERCEPTION</text>
+<text class="title" x="596" y="365">Soccer-specific models</text>
+<text class="body" x="596" y="406">Players, roles, ball + pitch landmarks</text>
+<text class="body" x="596" y="437">5 Hz sampling · small-ball reacquisition</text>
+<rect x="1052" y="262" width="430" height="240" rx="23" fill="#1c303b" stroke="#5b84a1" stroke-width="2"/>
+<path d="M1072 266 H1462" stroke="#9dd6f1" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="1083" y="320">03 / GEOMETRY + TRACKING</text>
+<text class="title" x="1083" y="365">Follow the play</text>
+<text class="body" x="1083" y="406">Pitch homography · camera motion</text>
+<text class="body" x="1083" y="437">Two-stage association · filtered ball track</text>
+<rect x="1052" y="583" width="430" height="240" rx="23" fill="#1c303b" stroke="#5b84a1" stroke-width="2"/>
+<path d="M1072 587 H1462" stroke="#9dd6f1" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="1083" y="641">04 / FULL-CLIP CONTEXT</text>
+<text class="title" x="1083" y="686">Refine the timeline</text>
+<text class="body" x="1083" y="727">Link tracklets · stabilize teams</text>
+<text class="body" x="1083" y="758">Smooth paths · reconstruct short gaps</text>
+<rect x="565" y="583" width="430" height="240" rx="23" fill="#29351e" stroke="#829657" stroke-width="2"/>
+<path d="M585 587 H975" stroke="#d0e79b" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="596" y="641">05 / EVOLVING STATE</text>
+<text class="title" x="596" y="686">Understand the situation</text>
+<text class="body" x="596" y="727">Ball lifecycle · possession · motion</text>
+<text class="body" x="596" y="758">Visible shape, pressure and transitions</text>
+<rect x="78" y="583" width="430" height="240" rx="23" fill="#29351e" stroke="#829657" stroke-width="2"/>
+<path d="M98 587 H488" stroke="#d0e79b" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="109" y="641">06 / TACTICAL OPTIONS</text>
+<text class="title" x="109" y="686">Build plausible choices</text>
+<text class="body" x="109" y="727">Pass targets · carry · cross · shot</text>
+<text class="body" x="109" y="758">Candidates follow the ball-control phase.</text>
+<rect x="78" y="904" width="430" height="240" rx="23" fill="#2f2a3b" stroke="#9c81b0" stroke-width="2"/>
+<path d="M98 908 H488" stroke="#d7b9eb" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="109" y="962">07 / JEV JUDGMENTS</text>
+<text class="title" x="109" y="1007">Score what comes next</text>
+<text class="body" x="109" y="1048">Player-specific choice probabilities</text>
+<text class="body" x="109" y="1079">Every 200 ms · expire with control state</text>
+<rect x="565" y="904" width="430" height="240" rx="23" fill="#1c3028" stroke="#58826b" stroke-width="2"/>
+<path d="M585 908 H975" stroke="#b6ee95" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="596" y="962">08 / REPLAY DATA</text>
+<text class="title" x="596" y="1007">Finalize the result</text>
+<text class="body" x="596" y="1048">Versioned frames, states and judgments</text>
+<text class="body" x="596" y="1079">Full analysis ready before playback.</text>
+<rect x="1052" y="904" width="430" height="240" rx="23" fill="#1c3028" stroke="#58826b" stroke-width="2"/>
+<path d="M1072 908 H1462" stroke="#b6ee95" stroke-width="7" stroke-linecap="round"/>
+<text class="stage" x="1083" y="962">09 / BROWSER REPLAY</text>
+<text class="title" x="1083" y="1007">Watch and inspect</text>
+<text class="body" x="1083" y="1048">Source-frame clock · interpolated tracks</text>
+<text class="body" x="1083" y="1079">Pitch, NOW / NEXT, routes and scrubbing</text>
+<path class="edge" d="M510 382H552"/>
+<path class="edge" d="M997 382H1039"/>
+<path class="edge" d="M1267 506V570"/>
+<path class="edge" d="M1049 703H1009"/>
+<path class="edge" d="M562 703H522"/>
+<path class="edge" d="M293 827V891"/>
+<path class="edge" d="M510 1024H552"/>
+<path class="edge" d="M997 1024H1039"/>
+<path d="M78 1191H1482" stroke="#3c5b4b" stroke-width="2"/>
+<circle cx="95" cy="1221" r="5" fill="#d0e79b"/><text class="note" x="113" y="1228">Versioned tactical reference grounds options and Jev</text>
+<circle cx="792" cy="1221" r="5" fill="#d7b9eb"/><text class="note" x="810" y="1228">SQLite caches Jev calls and enforces API budget</text>
+</svg>
