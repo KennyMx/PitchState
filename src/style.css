@@ -1543,3 +1543,51 @@ progress {
     transition: none;
   }
 }
+
+.action-overlay-now {
+  color: #f1f5eb;
+  font-size: 10px;
+  padding-bottom: 5px;
+  margin-bottom: 5px;
+  border-bottom: 1px solid #ffffff20;
+}
+.action-overlay-now span {
+  color: #c8d6b9;
+  font-size: 8px;
+  letter-spacing: 0.08em;
+  margin-right: 5px;
+}
+.action-overlay-value strong {
+  font-size: clamp(12px, 1.35vw, 16px);
+  line-height: 1.25;
+}
+.action-overlay-value {
+  animation-duration: 100ms;
+}
+.action-overlay-meter i {
+  transition-duration: 160ms;
+}
+.control-read {
+  display: grid;
+  gap: 5px;
+  margin: 12px 0;
+  padding: 10px 12px;
+  border-left: 2px solid #c8ee85;
+  background: #c8ee8508;
+}
+.control-read span {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  color: #a8bc9f;
+}
+.control-read strong {
+  font-size: 15px;
+  font-weight: 550;
+}
+.control-read small {
+  color: #8d9e86;
+  font-size: 10px;
+}
+.probability > span {
+  overflow-wrap: anywhere;
+}

@@ -24,7 +24,13 @@ import Pitch from './components/Pitch';
 import PipelineInsights from './components/PipelineInsights';
 import ReplayOverlay from './components/ReplayOverlay';
 import ActionOverlay from './components/ActionOverlay';
-import { analyzeWithPipeline, getHealth, loadRealDemo, type Health } from './core/pipeline';
+import {
+  analyzeWithPipeline,
+  decisionAt,
+  getHealth,
+  loadRealDemo,
+  type Health,
+} from './core/pipeline';
 import { homography, enrichFrames, type BallMark, type Matrix } from './core/geometry';
 import { detectEvents, frameAt, type Point } from './core/model';
 const demo = createDemo();
@@ -456,6 +462,7 @@ export default function App() {
                     {pipeline ? (
                       <ReplayOverlay
                         frame={frameAt(analysis.frames, time)}
+                        forecast={decisionAt(analysis, time).candidate}
                         width={videoSize.w}
                         height={videoSize.h}
                         selected={selected}

@@ -1,3 +1,4 @@
+import type { Candidate } from '../core/pipeline';
 import type { Frame } from '../core/model';
 export default function ReplayOverlay({
   frame,
@@ -5,19 +6,69 @@ export default function ReplayOverlay({
   height,
   selected,
   onSelect,
+  forecast,
 }: {
   frame: Frame;
   width: number;
   height: number;
   selected: number;
   onSelect: (id: number) => void;
+  forecast?: Candidate;
 }) {
+  const target = frame.players.find((p) => p.id === forecast?.targetId)?.image;
+  const origin = frame.players.find((p) => p.id === forecast?.actorId)?.image ?? frame.ball?.image;
   return (
     <svg
       className="video-overlay neural-overlay"
       viewBox={`0 0 ${width} ${height}`}
       aria-label="Neural player and ball detections"
     >
+      <defs>
+        <marker
+          id="forecast-arrow"
+          viewBox="0 0 10 10"
+          refX="9"
+          refY="5"
+          markerWidth="5"
+          markerHeight="5"
+          orient="auto-start-reverse"
+        >
+          <path d="M0 0 L10 5 L0 10z" fill="#d0ff8e" />
+        </marker>
+      </defs>
+      {forecast && target && origin && (
+        <g className="forecast-route">
+          <title>Predicted option: {forecast.label}</title>
+          <line
+            x1={(origin.x / 100) * width}
+            y1={(origin.y / 100) * height}
+            x2={(target.x / 100) * width}
+            y2={(target.y / 100) * height}
+            stroke="#102017"
+            strokeWidth="7"
+            opacity=".5"
+          />
+          <line
+            x1={(origin.x / 100) * width}
+            y1={(origin.y / 100) * height}
+            x2={(target.x / 100) * width}
+            y2={(target.y / 100) * height}
+            stroke="#d0ff8e"
+            strokeWidth="3"
+            strokeDasharray="10 7"
+            markerEnd="url(#forecast-arrow)"
+            opacity=".9"
+          />
+          <circle
+            cx={(target.x / 100) * width}
+            cy={(target.y / 100) * height}
+            r="20"
+            fill="none"
+            stroke="#d0ff8e"
+            strokeWidth="3"
+          />
+        </g>
+      )}
       {frame.players.map((p) => {
         const b = p.box;
         if (!b) return null;

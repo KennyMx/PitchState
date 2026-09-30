@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Activity, BrainCircuit, Eye, Radio, ShieldCheck } from 'lucide-react';
 import type { Analysis } from '../core/model';
-import { humanize, judgmentAt, rawFrameAt } from '../core/pipeline';
+import { humanize, decisionAt } from '../core/pipeline';
 function PipelineInsights({
   analysis,
   time,
@@ -11,21 +11,18 @@ function PipelineInsights({
   time: number;
   onSeek: (time: number) => void;
 }) {
-  const judgment = judgmentAt(analysis, time),
-    frame = rawFrameAt(analysis.frames, time),
+  const view = decisionAt(analysis, time),
+    judgment = view.judgment,
+    frame = view.frame,
     s = frame?.state,
     q = analysis.quality;
-  const age = judgment ? Math.max(0, time - judgment.time) : 0,
-    stale =
-      age > 3 ||
-      (judgment?.time !== undefined &&
-        analysis.frames.some(
-          (f) => f.time > judgment.time && f.time <= time && f.calibration?.cut,
-        ));
-  const probabilities =
-    judgment?.source === 'jev'
-      ? Object.entries(judgment.nextAction?.probabilities ?? {}).sort((a, b) => b[1] - a[1])
-      : [];
+  const stale = !view.valid;
+  const probabilities = view.ranked;
+  const labelFor = (id: string) =>
+    judgment?.candidates?.find((c) => c.id === id)?.label ?? humanize(id);
+  const ticks = analysis.judgments?.filter(
+    (_j, i, all) => i % Math.max(1, Math.ceil(all.length / 16)) === 0 || i === all.length - 1,
+  );
   return (
     <section className="pipeline-insights">
       <div className="pipeline-path">
@@ -56,7 +53,7 @@ function PipelineInsights({
           {probabilities.length ? (
             <>
               <div className="forecast-head">
-                <strong>{humanize(judgment!.nextAction!.choice)}</strong>
+                <strong>{view.label}</strong>
                 <span>
                   {stale
                     ? 'STALE · RE-EVALUATION NEEDED'
@@ -66,7 +63,7 @@ function PipelineInsights({
               <div className={`probability-bars ${stale ? 'stale' : ''}`}>
                 {probabilities.map(([name, value]) => (
                   <div className="probability" key={name}>
-                    <span>{humanize(name)}</span>
+                    <span>{labelFor(name)}</span>
                     <div>
                       <i style={{ width: `${value * 100}%` }} />
                     </div>
@@ -78,7 +75,7 @@ function PipelineInsights({
                 {judgment!.model} · judged at {judgment!.time.toFixed(1)}s · {judgment!.latencyMs}{' '}
                 ms {judgment!.cached ? '· cached' : ''}
                 <br />
-                Precomputed from reconstructed context; not validated match-outcome odds.
+                Precomputed every analysis frame. Numbers identify tracks, not jersey numbers.
               </div>
             </>
           ) : (
@@ -101,6 +98,15 @@ function PipelineInsights({
             </strong>
             <small>State-rule baseline: {humanize(s?.phase ?? 'unknown')}</small>
           </div>
+          {s?.ballControl && (
+            <div className="control-read">
+              <span>HAPPENING NOW</span>
+              <strong>{s.ballControl.label}</strong>
+              <small>
+                Track IDs · control confidence {Math.round(s.ballControl.confidence * 100)}%
+              </small>
+            </div>
+          )}
           <dl>
             <div>
               <dt>Possession</dt>
@@ -164,7 +170,7 @@ function PipelineInsights({
             )}
           </dl>
           <div className="judgment-ticks">
-            {analysis.judgments?.map((j, i) => (
+            {ticks?.map((j, i) => (
               <button
                 key={i}
                 className={j.time <= time ? 'past' : ''}

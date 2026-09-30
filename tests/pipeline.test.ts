@@ -68,3 +68,36 @@ it('interpolates image boxes and ball at a 60Hz replay cadence from 5Hz observat
     expect(f.ball!.image!.x).toBeCloseTo(i);
   }
 });
+
+it('invalidates a specific pass on release and never carries it into flight', async () => {
+  const { decisionAt } = await import('../src/core/pipeline');
+  const a = {
+    name: 'level2',
+    source: 'pipeline',
+    duration: 1,
+    events: [],
+    frames: [
+      { time: 0, players: [], ball: null, state: { ballControl: { epoch: 1 } } },
+      { time: 0.2, players: [], ball: null, state: { ballControl: { epoch: 2 } } },
+    ],
+    judgments: [
+      {
+        time: 0,
+        source: 'jev',
+        controlEpoch: 1,
+        validUntil: 0.4,
+        nextDecision: {
+          choice: 'pass_1_2',
+          confidence: 0.7,
+          probabilities: { pass_1_2: 0.8, carry_1: 0.2 },
+        },
+        candidates: [
+          { id: 'pass_1_2', kind: 'pass', label: '#1 → #2 pass', actorId: 1, targetId: 2 },
+        ],
+      },
+    ],
+  } as unknown as Analysis;
+  expect(decisionAt(a, 0.1).candidate?.targetId).toBe(2);
+  expect(decisionAt(a, 0.2).candidate).toBeUndefined();
+  expect(decisionAt(a, 0.5).valid).toBe(false);
+});

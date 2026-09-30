@@ -4,12 +4,39 @@ export interface Choice {
   confidence: number;
   probabilities: Record<string, number>;
 }
+export interface Candidate {
+  id: string;
+  kind: string;
+  label: string;
+  actorId: number | null;
+  targetId: number | null;
+  evidence?: Record<string, unknown>;
+}
+export interface BallControl {
+  phase: string;
+  epoch: number;
+  actorId: number | null;
+  lastActorId: number | null;
+  team: string | null;
+  label: string;
+  confidence: number;
+  receiverCandidates: {
+    id: number;
+    team: string;
+    arrivalSeconds: number;
+    pathDistanceMeters: number;
+  }[];
+}
 export interface Judgment {
   time: number;
   source: 'jev' | 'unavailable';
   model?: string;
   cached?: boolean;
   nextAction?: Choice;
+  nextDecision?: Choice;
+  candidates?: Candidate[];
+  controlEpoch?: number;
+  validUntil?: number;
   phase?: Choice;
   dangerousRunProbability?: number;
   latencyMs?: number;
@@ -23,6 +50,7 @@ export interface Health {
   budget: { completedCalls: number; estimatedCostUsd: number };
 }
 export interface PipelineState {
+  ballControl?: BallControl;
   context?: {
     attackingTeam: string | null;
     contextSource: string;
@@ -67,6 +95,32 @@ export function judgmentAt(analysis: Analysis, time: number): Judgment | undefin
 }
 export function rawFrameAt(frames: Frame[], time: number) {
   return frames.filter((f) => f.time <= time).at(-1) ?? frames[0];
+}
+export function decisionAt(analysis: Analysis, time: number) {
+  const judgment = judgmentAt(analysis, time);
+  const frame = rawFrameAt(analysis.frames, time);
+  const valid =
+    !!judgment &&
+    judgment.source === 'jev' &&
+    (judgment.validUntil === undefined ? time - judgment.time <= 3 : time < judgment.validUntil) &&
+    (judgment.controlEpoch === undefined ||
+      judgment.controlEpoch === frame?.state?.ballControl?.epoch) &&
+    !analysis.frames.some((f) => f.calibration?.cut && f.time > judgment.time && f.time <= time);
+  const probabilities = valid
+    ? (judgment.nextDecision?.probabilities ?? judgment.nextAction?.probabilities ?? {})
+    : {};
+  const ranked = Object.entries(probabilities).sort((a, b) => b[1] - a[1]);
+  const top = ranked[0];
+  const candidate = top ? judgment?.candidates?.find((c) => c.id === top[0]) : undefined;
+  return {
+    judgment,
+    frame,
+    valid,
+    ranked,
+    candidate,
+    probability: top?.[1],
+    label: candidate?.label ?? (top ? humanize(top[0]) : 'No current prediction'),
+  };
 }
 async function request<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, init);
