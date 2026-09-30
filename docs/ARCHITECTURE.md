@@ -39,3 +39,11 @@ Build a labeled evaluation set spanning cuts, zooms, occlusions and kit ambiguit
 ## Playback clock
 
 The HTML video decodes the original source cadence. `requestVideoFrameCallback` drives the replay playhead on each presented video frame; animation-frame polling is a compatibility fallback. Pitch coordinates, image boxes and ball image coordinates interpolate between analysis samples. Source FPS and analysis Hz remain distinct. 60 FPS support depends on browser/display/decode capacity; upsampling a test fixture does not create new observed information.
+
+## Level 2 lifecycle and decisions
+
+`decisions.BallControl` distinguishes controlled possession, release, transit, reception, contested/loose ball, uncertain control and unknown evidence. It resets on cuts and does not label possession at clip start as a reception. Each phase/actor boundary increments an epoch. Current possession is unknown during flight even when the last team's context remains useful.
+
+A short trajectory regression estimates possible receiving paths; instantaneous speed and proximity confirm control separately, avoiding delayed reception caused by a smoothed velocity window. Candidates are restricted to visible eligible tracks and include measured passing-lane obstruction. Crossing/shooting candidates require field context. Transit candidates cannot contain a fresh pass by the previous carrier. The model sees current state and short phase/actor history, not future reception outcomes.
+
+Every 5 Hz sample has a separately cached, bounded Jev request. Results include an epoch and exclusive expiry timestamp. Both overlay and sidebar use the same validity function; stale targets and route arrows disappear immediately. Dense judgments are displayed through a decimated set of seek buttons while the full 200 ms sequence remains available in playback and JSON.

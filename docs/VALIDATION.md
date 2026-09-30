@@ -51,3 +51,15 @@ The second real clip was processed for its full 30 seconds (150 samples). It pro
 An opt-in four-call synthetic sensitivity check (`scripts/evaluate_action_context.py`) produced cross probabilities of 19% on a wide approach, 93% at the byline with box targets, and 23% with an empty box. A missing-ball/unknown-team case abstained at 100%. These test model sensitivity to our context, not forecast accuracy or calibrated percentages. Exact results and the tactical reference hash are committed in `reports/action-context-sensitivity.json`.
 
 A real three-second segment re-encoded at 60 FPS was uploaded through the browser. Processing completed before replay opened, the result retained 60 FPS source metadata and 5 Hz analysis, and Play drove the native video-frame clock with interpolated overlays. This tests cadence compatibility; duplicated source frames add no information, and no hardware-independent sustained-rendering performance guarantee is implied.
+
+## Level 2: concrete decisions at 5 Hz
+
+The 12-second real clip now has 60 decision slots: 58 valid cached/live responses and two earlier failed requests that are deliberately not paid-retried. The second eight-second clip has 40 slots with 39 valid responses. A browser upload of a real three-second segment encoded at 60 FPS completed with all 15 Level 2 decisions. These runs reuse neural caches; runtimes are not cold inference benchmarks.
+
+The video visibly changes from “NOW #4 on the ball / NEXT #4 → #2 pass” to “NOW Ball in transit / NEXT #23 receives.” These are actual model outputs on inferred state, not annotations establishing the correct recipient. Model confidence can be overconfident; no ground-truth recipient benchmark has been completed.
+
+`scripts/evaluate_level2.py` audits epoch validity, 200 ms expiry, probability normalization, visible target references, and the absence of new pass/carry/cross/shot options during transit. All three replay audits pass; see `reports/level2-evaluation.json`. It makes no network calls. Regression tests additionally exercise control→release→reception, clip-start versus reception, camera-cut resets, visible teammate candidates, dynamic Jev criteria, category aggregation, rounding provenance and UI invalidation.
+
+Two-decimal model distributions occasionally sum to 0.99 or 1.01. Validation accepts only a bounded rounding discrepancy, records raw probabilities and their sum, and normalizes the displayed distribution. Two actual upload responses exercised this path. Larger errors, failed requests and missing evidence remain explicit rather than borrowing an old forecast. Earlier failures are preserved in the durable ledger.
+
+The suite now has 25 Python and 19 frontend/core tests. Production build, formatting and lint pass. The development ledger accounts for roughly 6.5 cents across all project testing at the documented rate, including conservative reservations; this is not the provider invoice. Local caps remain enabled. Ball height, off-camera targets, true jersey identity and labeled forecast accuracy remain unresolved research areas.

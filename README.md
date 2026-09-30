@@ -76,3 +76,9 @@ npm run test:server
 A static-only deployment can run the browser baseline, but **neural uploads require the Python service**. The included single-worker container setup bounds cost and serves the frontend/API together. No public deployment is claimed. Model/runtime license obligations and footage rights must be resolved for the intended deployment; see `models/manifest.json`.
 
 The maintained [tactical reference](docs/TACTICAL_REFERENCE.md) is loaded into Jev requests, with a version/hash for reproducibility. See [offline evaluation](reports/offline-evaluation.json) and [crossing sensitivity](reports/action-context-sensitivity.json). Reconstruction uses future observations; the displayed forecasts are retrospective judgments, not a leakage-free prospective benchmark.
+
+## Level 2: who does what next?
+
+Analysis now evaluates Jev at each 200 ms sample. The video separates **NOW** (controlled ball, release, transit, reception or contested control) from **NEXT** (for example, “#4 → #2 pass” or “#10 receives”). The probability panel compares concrete alternatives and a dashed route highlights the leading visible target. Predictions expire at the next sample and immediately on a control-state change. The system does not continue forecasting a pass by a player who has already released the ball. IDs are tracks, not recognized jersey numbers.
+
+Motion over several samples stabilizes possible reception paths; single-step motion keeps control detection responsive. This remains a geometric estimate: the system cannot directly measure airborne ball height, and recipient accuracy has not been established against ground truth.

@@ -1,0 +1,229 @@
+{
+  "scope": "Replay contract checks on real development clips, not ground-truth recipient accuracy",
+  "runs": [
+    {
+      "clip": "2e57b9_0",
+      "seconds": 12.0,
+      "sourceFps": 25.0,
+      "analysisHz": 5.0,
+      "decisionSlots": 60,
+      "validDecisions": 58,
+      "unavailableDecisions": 2,
+      "ballPhases": {
+        "loose_ball": 3,
+        "in_transit": 38,
+        "reception": 5,
+        "controlled": 12,
+        "uncertain_control": 1,
+        "released": 1
+      },
+      "contractFailures": [],
+      "examples": [
+        {
+          "time": 0.0,
+          "ballPhase": "loose_ball",
+          "next": "Read uncertain",
+          "probability": 0.59
+        },
+        {
+          "time": 0.2,
+          "ballPhase": "in_transit",
+          "next": "#4 receives",
+          "probability": 0.95
+        },
+        {
+          "time": 0.6,
+          "ballPhase": "reception",
+          "next": "#4 \u2192 #2 pass",
+          "probability": 0.66
+        },
+        {
+          "time": 1.0,
+          "ballPhase": "controlled",
+          "next": "#4 \u2192 #2 pass",
+          "probability": 0.73
+        },
+        {
+          "time": 2.4,
+          "ballPhase": "uncertain_control",
+          "next": "Read uncertain",
+          "probability": 0.54
+        },
+        {
+          "time": 2.6,
+          "ballPhase": "reception",
+          "next": "#25 \u2192 #2 pass",
+          "probability": 0.38
+        },
+        {
+          "time": 3.2,
+          "ballPhase": "controlled",
+          "next": "#25 \u2192 #15 pass",
+          "probability": 0.52
+        },
+        {
+          "time": 4.2,
+          "ballPhase": "released",
+          "next": "#15 receives",
+          "probability": 0.56
+        }
+      ],
+      "quality": {
+        "frames": 60,
+        "playerObservations": 1395,
+        "uniqueTracks": 29,
+        "ballObservedFraction": 0.867,
+        "ballReconstructedFraction": 0.133,
+        "ballPredictedFraction": 0.0,
+        "calibratedFraction": 1.0,
+        "possessionKnownFraction": 0.283,
+        "contextAvailableFraction": 0.733,
+        "forecastAbstentions": 4,
+        "processingSeconds": 15.28,
+        "jevResponses": 58,
+        "shots": 1
+      }
+    },
+    {
+      "clip": "0bfacc_0",
+      "seconds": 8.0,
+      "sourceFps": 25.0,
+      "analysisHz": 5.0,
+      "decisionSlots": 40,
+      "validDecisions": 39,
+      "unavailableDecisions": 1,
+      "ballPhases": {
+        "uncertain_control": 2,
+        "reception": 7,
+        "released": 2,
+        "in_transit": 12,
+        "controlled": 10,
+        "unknown": 1,
+        "contested": 6
+      },
+      "contractFailures": [],
+      "examples": [
+        {
+          "time": 0.0,
+          "ballPhase": "uncertain_control",
+          "next": "#6 gains control",
+          "probability": 0.49
+        },
+        {
+          "time": 0.2,
+          "ballPhase": "reception",
+          "next": "#6 \u2192 #8 pass",
+          "probability": 0.36
+        },
+        {
+          "time": 0.6,
+          "ballPhase": "released",
+          "next": "Reception \u00b7 target unresolved",
+          "probability": 0.77
+        },
+        {
+          "time": 0.8,
+          "ballPhase": "in_transit",
+          "next": "#7 receives",
+          "probability": 0.99
+        },
+        {
+          "time": 1.6,
+          "ballPhase": "reception",
+          "next": "#7 \u2192 #15 pass",
+          "probability": 0.43
+        },
+        {
+          "time": 2.2,
+          "ballPhase": "controlled",
+          "next": "#7 \u2192 #15 pass",
+          "probability": 0.46
+        },
+        {
+          "time": 2.6,
+          "ballPhase": "released",
+          "next": "#1 receives",
+          "probability": 0.95
+        },
+        {
+          "time": 2.8,
+          "ballPhase": "in_transit",
+          "next": "#1 receives",
+          "probability": 0.98
+        }
+      ],
+      "quality": {
+        "frames": 40,
+        "playerObservations": 933,
+        "uniqueTracks": 26,
+        "ballObservedFraction": 0.925,
+        "ballReconstructedFraction": 0.075,
+        "ballPredictedFraction": 0.0,
+        "calibratedFraction": 1.0,
+        "possessionKnownFraction": 0.425,
+        "contextAvailableFraction": 0.975,
+        "forecastAbstentions": 2,
+        "processingSeconds": 14.77,
+        "jevResponses": 39,
+        "shots": 1
+      }
+    },
+    {
+      "clip": "replay60",
+      "seconds": 3.0,
+      "sourceFps": 60.0,
+      "analysisHz": 5.0,
+      "decisionSlots": 15,
+      "validDecisions": 15,
+      "unavailableDecisions": 0,
+      "ballPhases": {
+        "loose_ball": 1,
+        "in_transit": 2,
+        "reception": 2,
+        "controlled": 10
+      },
+      "contractFailures": [],
+      "examples": [
+        {
+          "time": 0.0,
+          "ballPhase": "loose_ball",
+          "next": "Read uncertain",
+          "probability": 0.61
+        },
+        {
+          "time": 0.2,
+          "ballPhase": "in_transit",
+          "next": "#4 receives",
+          "probability": 0.92
+        },
+        {
+          "time": 0.6,
+          "ballPhase": "reception",
+          "next": "#4 \u2192 #2 pass",
+          "probability": 0.69
+        },
+        {
+          "time": 1.0,
+          "ballPhase": "controlled",
+          "next": "#4 \u2192 #2 pass",
+          "probability": 0.74
+        }
+      ],
+      "quality": {
+        "frames": 15,
+        "playerObservations": 363,
+        "uniqueTracks": 26,
+        "ballObservedFraction": 0.933,
+        "ballReconstructedFraction": 0.067,
+        "ballPredictedFraction": 0.0,
+        "calibratedFraction": 1.0,
+        "possessionKnownFraction": 0.8,
+        "contextAvailableFraction": 1.0,
+        "forecastAbstentions": 1,
+        "processingSeconds": 4.75,
+        "jevResponses": 15,
+        "shots": 1
+      }
+    }
+  ]
+}
