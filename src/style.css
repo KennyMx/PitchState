@@ -1452,18 +1452,18 @@ progress {
   right: 14px;
   bottom: 14px;
   z-index: 3;
-  width: clamp(170px, 30%, 250px);
-  padding: 12px 14px 10px;
-  border: 1px solid #d1fa913d;
-  border-radius: 10px;
-  background: #101b15ed;
-  box-shadow: 0 6px 24px #0005;
+  width: clamp(145px, 23%, 185px);
+  padding: 7px 10px;
+  border: 1px solid #d1fa9126;
+  border-radius: 7px;
+  background: #101b1599;
+  box-shadow: 0 3px 12px #0003;
   color: #edffd9;
   pointer-events: none;
   contain: layout paint;
 }
 .action-overlay-caption {
-  font-size: 9px;
+  font-size: 8px;
   letter-spacing: 0.09em;
   color: #b4c4ab;
 }
@@ -1472,23 +1472,23 @@ progress {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px;
-  margin: 5px 0 8px;
+  margin: 3px 0 5px;
   animation: action-arrive 180ms ease-out;
 }
 .action-overlay-value strong {
-  font-size: clamp(16px, 2vw, 23px);
+  font-size: clamp(15px, 1.5vw, 18px);
   font-weight: 650;
 }
 .action-overlay-value span {
-  font-size: 24px;
+  font-size: 19px;
   color: #d0f895;
   font-variant-numeric: tabular-nums;
 }
 .action-overlay-value small {
-  font-size: 13px;
+  font-size: 11px;
 }
 .action-overlay-meter {
-  height: 3px;
+  height: 2px;
   background: #d0f89520;
   border-radius: 4px;
   overflow: hidden;
@@ -1501,8 +1501,8 @@ progress {
   transition: transform 220ms ease-out;
 }
 .action-overlay-detail {
-  margin-top: 7px;
-  font-size: 9px;
+  margin-top: 5px;
+  font-size: 8px;
   color: #a6b5a2;
 }
 .action-overlay.unavailable {
@@ -1522,8 +1522,8 @@ progress {
   .action-overlay {
     right: 8px;
     bottom: 8px;
-    padding: 8px 10px;
-    width: 174px;
+    padding: 6px 8px;
+    width: 150px;
   }
   .action-overlay-caption {
     font-size: 8px;
