@@ -10,7 +10,10 @@ from PIL import Image, ImageDraw, ImageFont
 ROOT = Path(__file__).resolve().parents[1]
 analysis = json.loads((ROOT / ".local/real-analysis.json").read_text())
 source = cv2.VideoCapture(str(ROOT / "data/2e57b9_0.mp4"))
-fps = source.get(cv2.CAP_PROP_FPS)
+source_fps = source.get(cv2.CAP_PROP_FPS)
+fps = 60
+source_index = -1
+video = None
 writer = cv2.VideoWriter(
     str(ROOT / ".local/readme-demo.avi"),
     cv2.VideoWriter_fourcc(*"MJPG"),
@@ -21,10 +24,13 @@ font_path = "/System/Library/Fonts/Supplemental/Arial.ttf"
 fonts = {s: ImageFont.truetype(font_path, s) for s in (11, 13, 15, 18, 24, 32)}
 frames = analysis["frames"]
 for n in range(round(analysis["duration"] * fps)):
-    ok, video = source.read()
-    if not ok:
-        break
     t = n / fps
+    target_index = int(t * source_fps)
+    while source_index < target_index:
+        ok, video = source.read()
+        if not ok:
+            raise RuntimeError("Source footage ended before the analyzed replay")
+        source_index += 1
     index = min(int(t * analysis["sampleFps"]), len(frames) - 1)
     a, b = frames[index], frames[min(index + 1, len(frames) - 1)]
     ratio = max(0, min(1, (t - a["time"]) / max(0.001, b["time"] - a["time"])))

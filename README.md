@@ -10,9 +10,9 @@ Upload a soccer clip. Replay the players, the ball, the tactical picture, and **
 
 [![PitchState real-footage replay: player tracking, moving pitch reconstruction, and changing Jev next-action probabilities](docs/assets/pitchstate-demo.gif)](https://github.com/KennyMx/PitchState/raw/refs/heads/main/docs/assets/pitchstate-demo.mp4)
 
-**[Watch the full-quality video ↗](https://github.com/KennyMx/PitchState/raw/refs/heads/main/docs/assets/pitchstate-demo.mp4)** · 12 seconds · 25 FPS source · 5 Hz analysis
+**[Watch the processed 60 FPS video ↗](https://github.com/KennyMx/PitchState/raw/refs/heads/main/docs/assets/pitchstate-demo.mp4)** · 12 seconds · 60 FPS replay · 5 Hz analysis
 
-This presentation replay is rendered from real footage and the pipeline's saved analysis, rather than a screen recording of the app. The inline preview is reduced to 7 FPS; the MP4 preserves the source cadence. IDs identify tracks, not recognized jersey numbers. [Footage credit and reproduction](docs/assets/README.md).
+This presentation replay is rendered from real footage and the pipeline's saved analysis, rather than a screen recording of the app. The inline preview is reduced to 7 FPS; the MP4 renders interpolated tracking overlays at 60 FPS over the original 25 FPS footage (repeated source frames, not native 60 FPS camera motion). IDs identify tracks, not recognized jersey numbers. [Footage credit and reproduction](docs/assets/README.md).
 
 | See what is happening                                                   | Understand the situation                                                        | Explore what comes next                                                                         |
 | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
