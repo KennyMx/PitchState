@@ -4,6 +4,7 @@ Transit is a motion hypothesis, not a claim that a planar detector measures ball
 No future reception label is used to select a predicted recipient.
 """
 
+from collections import deque
 import numpy as np
 
 
@@ -14,6 +15,7 @@ def point(p):
 class BallControl:
     def __init__(self):
         self.previous = None
+        self.motion = deque(maxlen=4)
         self.actor = None
         self.team = None
         self.last_control = -10.0
@@ -33,6 +35,7 @@ class BallControl:
             self.actor = None
             self.team = None
             self.previous = None
+            self.motion.clear()
             self.last_control = -10.0
             self.candidate = None
             self.phase = "unknown"
@@ -45,26 +48,38 @@ class BallControl:
         valid = bool(ball and frame["calibration"]["valid"] and ball.get("confidence", 0) >= 0.15)
         velocity = None
         speed = None
-        if (
-            valid
-            and self.previous
-            and self.previous.get("ball")
-            and self.previous["calibration"]["valid"]
-        ):
-            dt = t - self.previous["time"]
-            if 0 < dt <= 0.4:
-                velocity = (point(ball) - point(self.previous["ball"])) / dt
+        if valid:
+            if self.motion and t - self.motion[-1][0] > 0.4:
+                self.motion.clear()
+            self.motion.append((t, point(ball)))
+            if len(self.motion) >= 2:
+                times = np.array([sample[0] for sample in self.motion])
+                times -= times.mean()
+                points = np.array([sample[1] for sample in self.motion])
+                velocity = (times[:, None] * (points - points.mean(axis=0))).sum(axis=0) / max(
+                    float(np.dot(times, times)), 0.001
+                )
                 speed = float(np.linalg.norm(velocity))
                 if speed > 45:
                     velocity = None
                     speed = None
+        else:
+            self.motion.clear()
         ranked = (
             sorted([(float(np.linalg.norm(point(p) - point(ball))), p["id"], p) for p in players])
             if valid
             else []
         )
         nearest = ranked[0][2] if ranked else None
-        controlled = bool(ranked and ranked[0][0] < 2.8 and (speed is None or speed < 10))
+        control_speed = None
+        if len(self.motion) >= 2:
+            dt = self.motion[-1][0] - self.motion[-2][0]
+            control_speed = float(np.linalg.norm(self.motion[-1][1] - self.motion[-2][1])) / max(
+                dt, 0.001
+            )
+        controlled = bool(
+            ranked and ranked[0][0] < 2.8 and (control_speed is None or control_speed < 10)
+        )
         contested = bool(
             ranked
             and len(ranked) > 1

@@ -326,6 +326,8 @@ class GameState:
                     if f["ball"] and f["calibration"]["valid"]
                     else None,
                     "phase": f["state"]["phase"],
+                    "ballPhase": f["state"].get("ballControl", {}).get("phase"),
+                    "actorId": f["state"].get("ballControl", {}).get("actorId"),
                     "context": f["state"].get("context"),
                 }
                 for f in recent[::2]
