@@ -1,12 +1,64 @@
 # PitchState
 
-**See the game beneath the game.** Upload a soccer clip and replay learned player/ball detections, a moving pitch reconstruction, evolving tactical evidence, and Jev next-action probabilities on one timeline.
+### See the game beneath the game.
 
-The default upload path is a working neural pipeline:
+Upload a soccer clip. Replay the players, the ball, the tactical picture, and **who might do what next** — all on one synchronized timeline.
 
-**Footage → soccer-specific perception → camera-aware tracking → evolving game state → tactical evidence → Jev → next-three-second action distribution.**
+[Watch the demo](#demo) · [System architecture](#system-architecture) · [Run locally](#run) · [Validation](docs/VALIDATION.md)
 
-React/TypeScript renders the replay. A Python/FastAPI companion runs three local soccer models and sends compact state features to Jev. Raw video is not sent to Jev. A cached real analysis loads immediately when configured; a clearly labeled simulation is the fallback. The earlier kit-color browser baseline remains available for comparison.
+## Demo
+
+[![PitchState real-footage replay: player tracking, moving pitch reconstruction, and changing Jev next-action probabilities](docs/assets/pitchstate-demo.gif)](https://github.com/KennyMx/PitchState/raw/refs/heads/main/docs/assets/pitchstate-demo.mp4)
+
+**[Watch the full-quality video ↗](https://github.com/KennyMx/PitchState/raw/refs/heads/main/docs/assets/pitchstate-demo.mp4)** · 12 seconds · 25 FPS source · 5 Hz analysis
+
+This presentation replay is rendered from real footage and the pipeline's saved analysis, rather than a screen recording of the app. The inline preview is reduced to 7 FPS; the MP4 preserves the source cadence. IDs identify tracks, not recognized jersey numbers. [Footage credit and reproduction](docs/assets/README.md).
+
+| See what is happening                                                   | Understand the situation                                                        | Explore what comes next                                                                         |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Player and ball tracks, trajectories, and a moving pitch reconstruction | Possession, ball release and reception, pressure, passing lanes, and team shape | Player-specific choices such as **#25 → #15 pass**, with probabilities that update every 200 ms |
+
+## System architecture
+
+**Process the whole clip first. Replay the completed analysis smoothly.** Full-video context helps stabilize tracks and trajectories; the original video's frame clock drives playback independently of the analysis frequency.
+
+```mermaid
+flowchart TD
+    upload["Browser · upload soccer clip"] --> api["FastAPI · private session + bounded job queue"]
+
+    subgraph offline["OFFLINE ANALYSIS · complete before replay"]
+        direction TB
+        vision["5 Hz perception<br/>Soccer-trained players, ball + pitch landmarks"]
+        tracks["Camera-aware tracking + full-clip refinement<br/>Identity association · short-gap repair · trajectory smoothing"]
+        state["Evolving game state<br/>Possession · ball lifecycle · motion · team shape"]
+        tactics["Tactical evidence + concrete candidates<br/>Passing lanes · pressure · runs · actor / receiver options"]
+        jev["Jev · one judgment slot per 200 ms<br/>Next-action probabilities + validity window"]
+        vision --> tracks --> state --> tactics --> jev
+    end
+
+    api --> vision
+    reference["Maintained tactical reference<br/>Versioned soccer concepts + contextual signals"] -.-> tactics
+    reference -.-> jev
+    cache[("SQLite cache + API budget ledger")] <--> jev
+    jev --> result["Completed replay JSON + original video"]
+    result --> replay["React / TypeScript replay<br/>Source-frame clock · interpolated overlays · up to 60 FPS"]
+    replay --> views["Tracking + top-down pitch + NOW / NEXT<br/>Scrubbing · specific targets · probability inspection"]
+
+    classDef input fill:#182c24,stroke:#82b798,color:#effbea
+    classDef processing fill:#182637,stroke:#7eadd1,color:#edf5ff
+    classDef intelligence fill:#28351a,stroke:#b3db78,color:#effbdc
+    classDef storage fill:#302838,stroke:#b69ac9,color:#f7efff
+    class upload,api,replay,views input
+    class vision,tracks,state,result processing
+    class tactics,jev,reference intelligence
+    class cache storage
+```
+
+- **Local perception:** three soccer models run in the Python service. Jev receives compact state and candidate descriptions; raw footage stays out of its requests.
+- **State-aware decisions:** controlled possession, release, transit, and reception produce different candidate actions. Expiry and control-state changes prevent stale pass predictions from surviving a release.
+- **Bounded running costs:** persistent inference/Jev caches, durable request reservations, upload limits, and a single processing worker keep spending explicit.
+
+Read the [detailed architecture](docs/ARCHITECTURE.md), [Jev integration](docs/JEV.md), and [maintained tactical reference](docs/TACTICAL_REFERENCE.md). The default upload path uses neural perception; a labeled simulation and an earlier browser baseline remain available for comparison.
 
 ## Run
 
@@ -32,7 +84,7 @@ Without a Jev key, perception and tactical state still work; the interface repor
 
 ## Reproduce the real-footage evaluation
 
-The downloader references public links from [Roboflow's soccer example](https://github.com/roboflow/sports/tree/main/examples/soccer). These research clips are not bundled or cleared for public redistribution.
+The downloader references public links from [Roboflow's soccer example](https://github.com/roboflow/sports/tree/main/examples/soccer). Full evaluation clips are downloaded separately; the short README analysis excerpt is credited in [demo notes](docs/assets/README.md). Source footage rights remain with their owners.
 
 ```sh
 .venv/bin/python scripts/download_assets.py --footage
