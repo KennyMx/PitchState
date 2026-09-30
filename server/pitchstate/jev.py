@@ -13,8 +13,9 @@ import httpx
 
 ENDPOINT = "https://api.typesafe.ai/v1/systemone"
 MODEL = "jev-1.13.0"
-PROMPT_VERSION = "soccer-context-v2"
+PROMPT_VERSION = "soccer-level2-v3"
 ACTIONS = {
+    "receive": "Control or reception of a ball already released; not a new pass.",
     "pass": "A pass to a teammate, excluding a cross into the penalty area.",
     "carry": "The carrier keeps the ball and advances by dribbling.",
     "shot": "An attempt to score at goal.",
@@ -89,12 +90,12 @@ class JevJudge:
     ):
         self.key = api_key if api_key is not None else os.getenv("JEV_API_KEY", "")
         self.max_calls = (
-            max_calls if max_calls is not None else int(os.getenv("JEV_MAX_CALLS", "60"))
+            max_calls if max_calls is not None else int(os.getenv("JEV_MAX_CALLS", "300"))
         )
         self.max_tokens = (
             max_tokens
             if max_tokens is not None
-            else int(os.getenv("JEV_MAX_INPUT_TOKENS", "250000"))
+            else int(os.getenv("JEV_MAX_INPUT_TOKENS", "1500000"))
         )
         directory.mkdir(parents=True, exist_ok=True)
         self.db = directory / "jev.sqlite3"
@@ -125,11 +126,26 @@ class JevJudge:
     def judge(self, state: dict[str, Any]) -> dict:
         if not self.key:
             raise JevUnavailable("Jev is not configured on the server")
-        payload = {"model": MODEL, "state": state, "questions": QUESTIONS}
+        candidates = state.get("decisionCandidates") or []
+        questions = QUESTIONS
+        if candidates:
+            criteria = {
+                c["id"]: c["label"] + ". Evidence: " + json.dumps(c.get("evidence", {}))
+                for c in candidates
+            }
+            questions = {
+                **QUESTIONS,
+                "next_action": {
+                    "type": "choice",
+                    "instructions": "Select the most likely NEXT event within three seconds from these concrete options. Use current.ballControl and tacticalReference. IDs are tracks, not jersey numbers. During released/in_transit, the pass has ALREADY happened: forecast reception/interception, never another pass by the previous carrier. During control, compare specific visible recipients, lane blockage, distance, pressure and crossing context. Do not invent a recipient. Use other target or insufficient evidence when appropriate. Criteria are mutually exclusive alternatives; unresolved reception means a receiver OTHER than the named candidates or unidentifiable. Unknown ball and control should favor insufficient_evidence. Probabilities must sum to one.",
+                    "criteria": criteria,
+                },
+            }
+        payload = {"model": MODEL, "state": state, "questions": questions}
         encoded = json.dumps(
             payload, sort_keys=True, allow_nan=False, separators=(",", ":")
         ).encode()
-        if len(encoded) > 24000:
+        if len(encoded) > 32000:
             raise JevUnavailable("State exceeds the bounded Jev request size")
         digest = hashlib.sha256(PROMPT_VERSION.encode() + encoded).hexdigest()
         # Reserve conservatively before transmission. Ambiguous/failed requests remain charged
@@ -185,11 +201,25 @@ class JevJudge:
                 "requestHash": digest,
                 "cached": False,
                 "latencyMs": round((time.monotonic() - started) * 1000),
-                "nextAction": validate_choice(answers["next_action"], ACTIONS),
+                "nextAction": validate_choice(
+                    answers["next_action"], questions["next_action"]["criteria"]
+                ),
                 "phase": validate_choice(answers["phase"], PHASES),
                 "dangerousRunProbability": dangerous,
                 "usage": body["usage"],
             }
+            if candidates:
+                decision = result["nextAction"]
+                result["nextDecision"] = decision
+                result["candidates"] = candidates
+                totals = {kind: 0.0 for kind in ACTIONS}
+                for candidate in candidates:
+                    totals[candidate["kind"]] += decision["probabilities"][candidate["id"]]
+                result["nextAction"] = {
+                    "choice": max(totals, key=totals.get),
+                    "probabilities": totals,
+                    "confidence": decision["confidence"],
+                }
             actual = int(body["usage"]["input_tokens"])
             if actual < 0:
                 raise ValueError("Invalid token usage")

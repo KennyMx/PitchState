@@ -288,6 +288,7 @@ class GameState:
         recent = list(self.history)[-15:]
         return {
             "sport": "association football",
+            "decisionCandidates": frame.get("actionCandidates"),
             "tacticalReference": self.knowledge,
             "reconstructionUsesFutureObservations": True,
             "forecastHorizonSeconds": 3,

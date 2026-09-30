@@ -102,7 +102,7 @@ def health(request: Request):
     response = JSONResponse(
         {
             "ready": available,
-            "pipeline": "offline-soccer-v3",
+            "pipeline": "offline-soccer-level2-v4",
             "jevConfigured": bool(os.getenv("JEV_API_KEY")),
             "maxClipSeconds": 60,
             "sampleFps": 5,

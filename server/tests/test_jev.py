@@ -62,3 +62,32 @@ def test_does_not_follow_redirects_or_expose_error_body(tmp_path):
     )
     with pytest.raises(JevUnavailable, match="HTTP 302"):
         JevJudge(tmp_path, api_key="test", client=client).judge({})
+
+
+def test_dynamic_decisions_aggregate_categories_without_inventing_probabilities(tmp_path):
+    options = [
+        {"id": "pass_1_2", "label": "#1 to #2 pass", "kind": "pass"},
+        {"id": "carry_1", "label": "#1 carries", "kind": "carry"},
+        {"id": "insufficient_evidence", "label": "Unknown", "kind": "insufficient_evidence"},
+    ]
+
+    def handler(request):
+        import json
+
+        payload = json.loads(request.content)
+        assert set(payload["questions"]["next_action"]["criteria"]) == {o["id"] for o in options}
+        body = response()
+        body["answers"]["next_action"] = {
+            "type": "choice",
+            "choice": "pass_1_2",
+            "probabilities": {"pass_1_2": 0.6, "carry_1": 0.3, "insufficient_evidence": 0.1},
+            "confidence": 0.5,
+        }
+        return httpx.Response(200, json=body)
+
+    result = JevJudge(
+        tmp_path, api_key="test", client=httpx.Client(transport=httpx.MockTransport(handler))
+    ).judge({"decisionCandidates": options})
+    assert result["nextDecision"]["choice"] == "pass_1_2"
+    assert result["nextAction"]["probabilities"]["pass"] == 0.6
+    assert result["candidates"] == options

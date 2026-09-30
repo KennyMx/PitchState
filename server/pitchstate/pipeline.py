@@ -13,9 +13,11 @@ from .perception import SoccerModels, Detection, TeamClassifier, kit_feature, RO
 from .tracking import PlayerTracker, BallTracker
 from .state import GameState
 from .refinement import refine
+from .decisions import BallControl, action_candidates
+from .tactics import contextual_features
 from .jev import JevJudge, JevUnavailable
 
-PIPELINE_VERSION = "offline-soccer-v3"
+PIPELINE_VERSION = "offline-soccer-level2-v4"
 PERCEPTION_VERSION = "neural-soccer-v2"
 
 
@@ -64,12 +66,12 @@ def analyze(
     camera = Camera()
     teams = TeamClassifier()
     state = GameState(home_attacks_right)
+    control = BallControl()
     judge = JevJudge(ROOT / ".local") if use_jev else None
     frames = []
     judgments = []
     judge_count = 0
-    last_judge = -10.0
-    max_judgments = int(os.getenv("JEV_MAX_CALLS_PER_JOB", "12"))
+    max_judgments = int(os.getenv("JEV_MAX_CALLS_PER_JOB", "300"))
     sample_count = int(np.ceil(duration * sample_fps))
     try:
         for index in range(sample_count):
@@ -200,17 +202,27 @@ def analyze(
             raise InterruptedError("Analysis cancelled")
         timestamp = frame["time"]
         state.update(frame)
-        # Spread judgments through the entire clip instead of exhausting the budget at its start.
-        interval = max(1.0, duration / max(1, max_judgments - 1))
-        if judge and judge_count < max_judgments and timestamp - last_judge >= interval:
+        ball_control = control.update(frame)
+        frame["state"]["ballControl"] = ball_control
+        frame["state"]["carrierId"] = ball_control["actorId"]
+        frame["state"]["possession"] = (
+            ball_control["team"] if ball_control["actorId"] is not None else "unknown"
+        )
+        frame["state"]["context"] = contextual_features(
+            frame, list(state.history)[:-1], home_attacks_right
+        )
+        frame["actionCandidates"] = action_candidates(frame)
+        # One independently cached judgment per analysis sample, normally every 200 ms.
+        if judge and judge_count < max_judgments:
             try:
                 judgment = judge.judge(state.for_judge(frame))
                 judgment["time"] = timestamp
+                judgment["controlEpoch"] = ball_control["epoch"]
+                judgment["validUntil"] = round(min(duration, timestamp + 1 / sample_fps), 4)
                 judgments.append(judgment)
             except JevUnavailable as error:
                 judgments.append({"time": timestamp, "source": "unavailable", "reason": str(error)})
             judge_count += 1
-            last_judge = timestamp
         if progress:
             progress(
                 {
@@ -248,7 +260,7 @@ def analyze(
         "shots": camera.shot + 1,
     }
     result = {
-        "schemaVersion": 3,
+        "schemaVersion": 4,
         "pipelineVersion": PIPELINE_VERSION,
         "source": "pipeline",
         "name": path.stem,
@@ -270,6 +282,8 @@ def analyze(
             "pitchDimensionsMeters": [105, 68],
             "homeAttacksRight": home_attacks_right,
             "forecastHorizonSeconds": 3,
+            "judgmentIntervalSeconds": 1 / sample_fps,
+            "identityMeaning": "track IDs, not jersey numbers",
             "probabilityInterpretation": "Jev model judgments, not empirically calibrated soccer forecasts",
             "limitations": [
                 "Off-camera players are unknown",
