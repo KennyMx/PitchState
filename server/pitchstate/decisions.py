@@ -106,7 +106,9 @@ class BallControl:
                 and t - self.last_control <= 0.6
                 or t - self.candidate_since >= 0.19
             ):
-                if self.actor != nearest["id"] or previous_phase in ("released", "in_transit"):
+                if previous_phase in ("released", "in_transit") or (
+                    self.actor is not None and self.actor != nearest["id"]
+                ):
                     self.received_at = t
                 self.actor = nearest["id"]
                 self.team = nearest["team"]

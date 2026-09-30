@@ -207,6 +207,9 @@ def analyze(
         ball_control = control.update(frame)
         frame["state"]["ballControl"] = ball_control
         frame["state"]["carrierId"] = ball_control["actorId"]
+        frame["state"]["possessionConfidence"] = (
+            ball_control["confidence"] if ball_control["actorId"] is not None else 0
+        )
         frame["state"]["possession"] = (
             ball_control["team"] if ball_control["actorId"] is not None else "unknown"
         )

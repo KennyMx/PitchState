@@ -20,6 +20,7 @@ def test_release_invalidates_pass_and_forecasts_reception():
     control.update(frame(0, 20))
     owned = control.update(frame(0.2, 20.2))
     assert owned["actorId"] == 1
+    assert owned["phase"] == "controlled"  # Clip start is not evidence of a reception.
     released = frame(0.4, 27)
     released["state"]["ballControl"] = control.update(released)
     assert released["state"]["ballControl"]["phase"] == "released"
