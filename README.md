@@ -2,73 +2,35 @@
 
 ### See the game beneath the game.
 
-Upload a soccer clip. Replay the players, the ball, the tactical picture, and **who might do what next** — all on one synchronized timeline.
+PitchState turns a short soccer clip into an interactive match analysis. It follows players and the ball, reconstructs their positions on a pitch, tracks how possession and team shape change, and shows the most likely **next decision** as the play unfolds. The result is processed before playback, so viewers can scrub through the footage and watch the analysis move with it.
 
-[Watch the demo](#demo) · [System architecture](#system-architecture) · [Run locally](#run) · [Validation](docs/VALIDATION.md)
+[Watch the demo](#demo) · [Explore the architecture](#architecture) · [Run locally](#run-locally) · [Read the evaluation](docs/VALIDATION.md)
 
 ## Demo
 
 https://github.com/user-attachments/assets/8cfa273a-fa0a-43c9-88aa-8f9407f17304
 
-**[Watch the processed 60 FPS video ↗](https://github.com/KennyMx/PitchState/raw/refs/heads/main/docs/assets/pitchstate-demo.mp4)** · 12 seconds · 60 FPS replay · 5 Hz analysis
+**[Open the 60 FPS replay](docs/assets/pitchstate-demo.mp4)** · 12-second real-footage excerpt · 5 Hz analysis
 
-This presentation replay is rendered from real footage and the pipeline's saved analysis, rather than a screen recording of the app. The embedded video renders interpolated tracking overlays at 60 FPS over the original 25 FPS footage (repeated source frames, not native 60 FPS camera motion). IDs identify tracks, not recognized jersey numbers. [Footage credit and reproduction](docs/assets/README.md).
+The overlays are drawn from saved neural tracking and Jev judgments. The 60 FPS replay interpolates those overlays over 25 FPS source footage; it does not invent new camera frames. Numbers are track IDs, not recognized jersey numbers. [Footage and demo details](docs/assets/README.md).
 
-| See what is happening                                                   | Understand the situation                                                        | Explore what comes next                                                                         |
-| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| Player and ball tracks, trajectories, and a moving pitch reconstruction | Possession, ball release and reception, pressure, passing lanes, and team shape | Player-specific choices such as **#25 → #15 pass**, with probabilities that update every 200 ms |
+## Architecture
 
-## System architecture
+![PitchState system architecture: upload, soccer perception, camera-aware tracking, full-clip refinement, evolving game state, tactical choices, Jev judgments, and synchronized replay](docs/assets/system-architecture.svg)
 
-**Process the whole clip first. Replay the completed analysis smoothly.** Full-video context helps stabilize tracks and trajectories; the original video's frame clock drives playback independently of the analysis frequency.
+Three soccer-trained models detect players, the ball, and pitch landmarks. Camera geometry and full-clip refinement stabilize the tracks before the system builds possession, tactical evidence, and player-specific action choices. Jev scores those choices every 200 ms; predictions expire when control changes. The browser then replays the completed result at the source video's cadence, including 60 FPS clips.
 
-```mermaid
-flowchart TD
-    upload["Browser · upload soccer clip"] --> api["FastAPI · private session + bounded job queue"]
+The [architecture notes](docs/ARCHITECTURE.md) cover the algorithms and data flow; the [tactical reference](docs/TACTICAL_REFERENCE.md) and [Jev integration](docs/JEV.md) document how the predictions are grounded and bounded.
 
-    subgraph offline["OFFLINE ANALYSIS · complete before replay"]
-        direction TB
-        vision["5 Hz perception<br/>Soccer-trained players, ball + pitch landmarks"]
-        tracks["Camera-aware tracking + full-clip refinement<br/>Identity association · short-gap repair · trajectory smoothing"]
-        state["Evolving game state<br/>Possession · ball lifecycle · motion · team shape"]
-        tactics["Tactical evidence + concrete candidates<br/>Passing lanes · pressure · runs · actor / receiver options"]
-        jev["Jev · one judgment slot per 200 ms<br/>Next-action probabilities + validity window"]
-        vision --> tracks --> state --> tactics --> jev
-    end
+## Run locally
 
-    api --> vision
-    reference["Maintained tactical reference<br/>Versioned soccer concepts + contextual signals"] -.-> tactics
-    reference -.-> jev
-    cache[("SQLite cache + API budget ledger")] <--> jev
-    jev --> result["Completed replay JSON + original video"]
-    result --> replay["React / TypeScript replay<br/>Source-frame clock · interpolated overlays · up to 60 FPS"]
-    replay --> views["Tracking + top-down pitch + NOW / NEXT<br/>Scrubbing · specific targets · probability inspection"]
-
-    classDef input fill:#182c24,stroke:#82b798,color:#effbea
-    classDef processing fill:#182637,stroke:#7eadd1,color:#edf5ff
-    classDef intelligence fill:#28351a,stroke:#b3db78,color:#effbdc
-    classDef storage fill:#302838,stroke:#b69ac9,color:#f7efff
-    class upload,api,replay,views input
-    class vision,tracks,state,result processing
-    class tactics,jev,reference intelligence
-    class cache storage
-```
-
-- **Local perception:** three soccer models run in the Python service. Jev receives compact state and candidate descriptions; raw footage stays out of its requests.
-- **State-aware decisions:** controlled possession, release, transit, and reception produce different candidate actions. Expiry and control-state changes prevent stale pass predictions from surviving a release.
-- **Bounded running costs:** persistent inference/Jev caches, durable request reservations, upload limits, and a single processing worker keep spending explicit.
-
-Read the [detailed architecture](docs/ARCHITECTURE.md), [Jev integration](docs/JEV.md), and [maintained tactical reference](docs/TACTICAL_REFERENCE.md). The default upload path uses neural perception; a labeled simulation and an earlier browser baseline remain available for comparison.
-
-## Run
-
-Use Node 22 and Python 3.10+. The tested environment is macOS with Apple MPS; CUDA and CPU are also selectable. Model downloads total approximately 414 MB; Python/Torch needs additional disk space.
+Requires Node 22 and Python 3.10+. Model downloads total about 414 MB. The tested environment is macOS with Apple MPS; CUDA and CPU are also selectable.
 
 ```sh
 npm ci
 bash scripts/setup_backend.sh
 cp .env.example .env.local
-# Set JEV_API_KEY in .env.local. Never use a VITE_* variable for secrets.
+# Add JEV_API_KEY to .env.local for predictions.
 npm run server
 ```
 
@@ -78,13 +40,11 @@ In another terminal:
 npm run dev
 ```
 
-Open http://127.0.0.1:5173. Upload an MP4/WebM/MOV (up to 60 seconds, 100 MB, 4K). Team A is initially the darker jersey cluster; choose its attack direction before processing. The entire clip is processed before replay opens. Offline refinement stabilizes identities and fills short, explicitly labeled gaps. Video-frame callbacks synchronize interpolated overlays at the source cadence, including 60 FPS sources. Play, scrub, select tracks, inspect movement, and click Jev timestamps or tactical moments. Export the complete replay JSON for inspection.
+Open http://127.0.0.1:5173 and upload an MP4, WebM, or MOV of up to 60 seconds and 100 MB. Select the darker team's attack direction, then wait for the analysis to complete. Replay, scrub, inspect tracks and tactical moments, or export the analysis JSON. Without a Jev key, tracking and game-state analysis still run; predictions are shown as unavailable.
 
-Without a Jev key, perception and tactical state still work; the interface reports unavailable judgments instead of fabricating probabilities.
+## Evaluation and limits
 
-## Reproduce the real-footage evaluation
-
-The downloader references public links from [Roboflow's soccer example](https://github.com/roboflow/sports/tree/main/examples/soccer). Full evaluation clips are downloaded separately; the short README analysis excerpt is credited in [demo notes](docs/assets/README.md). Source footage rights remain with their owners.
+The real-footage tests use two clips from [Roboflow's soccer example](https://github.com/roboflow/sports/tree/main/examples/soccer). Full clips and model weights are downloaded separately. To reproduce an analysis:
 
 ```sh
 .venv/bin/python scripts/download_assets.py --footage
@@ -92,45 +52,12 @@ PYTHONPATH=. .venv/bin/python scripts/analyze_clip.py data/2e57b9_0.mp4 \
   --seconds 12 --jev --output .local/real-analysis.json
 ```
 
-Reload the application to open the real cached example. A second clip is available as `data/0bfacc_0.mp4`. `--jev` makes actual paid requests within the configured caps; omit it for perception/state evaluation. Repeated identical state requests use the persistent cache.
+The 12-second and 8-second development clips produced 60 and 40 analysis samples respectively, with observed ball coverage of 86.7% and 92.5%. Coverage is availability, not tracking accuracy. See the [validation notes](docs/VALIDATION.md) and [machine-readable results](reports/real-footage-baseline.json).
 
-| Real evaluation             | Samples | Observed ball coverage | Processing time |
-| --------------------------- | ------: | ---------------------: | --------------: |
-| First clip, 12 seconds, CPU |      60 |                  86.7% |         108.1 s |
-| Second clip, 8 seconds, MPS |      40 |                  92.5% |          28.4 s |
+PitchState is an engineering research project, not a validated professional tracking system. Occlusion, airborne balls, similar kits, crowded scenes, and partial-field views can affect IDs, positions, and tactical judgments. Jev probabilities have not been calibrated against labeled match outcomes. Full-clip refinement uses later observations, so the displayed forecasts are retrospective judgments rather than a prospective prediction benchmark.
 
-Coverage measures availability, **not accuracy**. These are development runs on different clips/devices, not a controlled hardware comparison. Both produced actual Jev distributions. See [validation](docs/VALIDATION.md) and [machine-readable reports](reports/real-footage-baseline.json).
+## Engineering notes
 
-## What is implemented
+The FastAPI service processes one bounded job at a time, keeps uploads private to their session, and uses persistent neural and Jev caches. SQLite tracks Jev requests and spending limits. Raw video is not sent to Jev. The replay uses `requestVideoFrameCallback` and interpolates between analysis samples; 60 FPS playback depends on the uploaded video and browser capacity.
 
-- Soccer-trained player, goalkeeper, referee, ball and pitch-landmark models; tiled small-ball reacquisition.
-- Camera motion compensation, two-stage track association, ball filtering, bounded prediction, and shot resets.
-- Learned pitch calibration with RANSAC and rejection checks; explicit camera-space fallback.
-- Possession hysteresis, movement estimates, visible team shape, pressure, passing options, local overloads, dangerous-run candidates and transition evidence.
-- Context-grounded Jev questions with complete next-action distributions, timestamps, abstention and stale-judgment indicators.
-- Offline multi-stage jobs, cancellation, private session ownership, persistent caches, durable API budget, daily upload cap and replay export.
-
-This is an operational research project, not a validated professional tracking system. Ball occlusion, airborne-ball projection, crowded scenes, similar kits, unusual camera angles and partial-field views remain hard. IDs are track IDs, not player identities. Speed/distance and tactical labels inherit perception errors. Jev probabilities have not been calibrated against labeled match outcomes.
-
-## Engineering and deployment
-
-Read [architecture](docs/ARCHITECTURE.md), [Jev integration](docs/JEV.md), [validation](docs/VALIDATION.md), and [deployment](docs/DEPLOYMENT.md).
-
-```sh
-npm test
-npm run build
-npm run format:check
-pip install -r server/requirements-test.txt  # inside the backend environment
-npm run test:server
-.venv/bin/ruff check server scripts
-```
-
-A static-only deployment can run the browser baseline, but **neural uploads require the Python service**. The included single-worker container setup bounds cost and serves the frontend/API together. No public deployment is claimed. Model/runtime license obligations and footage rights must be resolved for the intended deployment; see `models/manifest.json`.
-
-The maintained [tactical reference](docs/TACTICAL_REFERENCE.md) is loaded into Jev requests, with a version/hash for reproducibility. See [offline evaluation](reports/offline-evaluation.json) and [crossing sensitivity](reports/action-context-sensitivity.json). Reconstruction uses future observations; the displayed forecasts are retrospective judgments, not a leakage-free prospective benchmark.
-
-## Level 2: who does what next?
-
-Analysis now evaluates Jev at each 200 ms sample. The video separates **NOW** (controlled ball, release, transit, reception or contested control) from **NEXT** (for example, “#4 → #2 pass” or “#10 receives”). The probability panel compares concrete alternatives and a dashed route highlights the leading visible target. Predictions expire at the next sample and immediately on a control-state change. The system does not continue forecasting a pass by a player who has already released the ball. IDs are tracks, not recognized jersey numbers.
-
-Motion over several samples stabilizes possible reception paths; single-step motion keeps control detection responsive. This remains a geometric estimate: the system cannot directly measure airborne ball height, and recipient accuracy has not been established against ground truth.
+For backend tests, install `server/requirements-test.txt` in the backend environment. Run checks with `npm test`, `npm run build`, `npm run format:check`, `npm run test:server`, and `.venv/bin/ruff check server scripts`. See [deployment](docs/DEPLOYMENT.md) for the single-worker setup and its limits. Public deployment also requires review of model licenses and footage rights in [the asset manifest](models/manifest.json).
